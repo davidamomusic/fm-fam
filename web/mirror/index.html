@@ -118,6 +118,8 @@ a { color: var(--accent-ink); }
   </div>
 </div>
 
+{{EXTRA_HTML}}
+
 <section class="help">
   <div>
     <h2>How</h2>
@@ -446,10 +448,11 @@ function attach() {
   if (i !== inPort) {
     if (inPort) inPort.onmidimessage = null;
     inPort = i;
-    if (inPort) inPort.onmidimessage = (e) => { lastHeard = performance.now(); mirror.feed(e.data); };
+    if (inPort) inPort.onmidimessage = (e) => { if (toolSink) { toolSink(e.data); return; } lastHeard = performance.now(); mirror.feed(e.data); };
   }
   const fresh = o !== outPort;
   outPort = o;
+  portListeners.forEach((fn) => fn());
   if (!inPort || !outPort) { say(`Waiting for ${NAME}. Plug the FM-1 in, or pick its ports.`, "wait"); return; }
   try { localStorage.setItem(`${SLUG}-mirror-ports`, JSON.stringify({ in: inPort.name, out: outPort.name })); } catch {}
   if (fresh) { heardHello = false; lastHeard = performance.now(); mirror.resync(); send(2); say(`Asking ${outPort.name}...`, "wait"); }
@@ -483,6 +486,18 @@ async function connect() {
   };
   pickPorts();
 }
+// The firmware's own tools on this page (tools/make_site.py: APP/mirror/extra.html and extra.js, EXTRA_HTML, EXTRA_JS), a
+// backup say: while one has the ports the mirror lets go of them (its keep-alive stops, so does its Control), and the
+// FM-1 sends it nothing; when it is done the mirror asks for the whole screen again.
+let toolSink = null;
+const mirrorTool = {
+  ports: () => (access && inPort && outPort ? { input: inPort, output: outPort } : null),
+  take(sink) { if (control) setControl(false); toolSink = sink; },
+  give() { toolSink = null; lastHeard = performance.now(); heardHello = false; mirror.resync(); send(2); },
+  get connected() { return !!(access && inPort && outPort); },
+  onports(fn) { portListeners.push(fn); },
+};
+const portListeners = [];
 connectBtn.addEventListener("click", connect);
 navigator.permissions?.query({ name: "midi", sysex: true }).then((p) => { if (p.state === "granted") connect(); }).catch(() => {});
 
@@ -587,10 +602,12 @@ byRole.forEach((k, r) => {                             // a knob: one detent a w
   }, { passive: false });
 });
 
+{{EXTRA_JS}}
+
 // keep-alive (the FM-1 stops after 6 s without one), reconnection, the numbers
 let lastBytes = 0, lastPainted = 0;
 setInterval(() => {
-  if (!outPort) return;
+  if (!outPort || toolSink) return;
   const quiet = performance.now() - lastHeard;
   if (quiet > 4000) { heardHello = false; mirror.resync(); send(2); say(`No answer. Is ${NAME} running? Asking again...`, "wait"); }
   else { send(1); if (heardHello) say(`Mirroring ${inPort ? inPort.name : ""}.`, "on"); }

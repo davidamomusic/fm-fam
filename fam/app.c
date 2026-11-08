@@ -97,6 +97,8 @@ static uint8_t pj_used[NPROJ];
 static uint8_t dirty;                    /* something has changed that the flash does not hold yet */
 static uint32_t edit_t;                  /* when it last changed (the autosave waits for a quiet moment) */
 static void touch(void) { dirty = 1; edit_t = plat_ms(); }
+static uint8_t bk_hold;                  /* a backup to the computer is streaming (app_backup_hold): nothing is saved meanwhile */
+static int store_put(uint32_t obj, const void *p, uint32_t n) { return bk_hold ? -1 : plat_store_save(obj, p, n); }
 
 /* ---- the scales: the notes of each above its root ---- */
 #define B(i) (1u << (i))
@@ -1069,7 +1071,7 @@ static void bt_load(void)
 static void bt_store(void)
 {
     if (bts_dirty) {
-        plat_store_save(OBJ_BT, &bts, sizeof bts);
+        store_put(OBJ_BT, &bts, sizeof bts);
         bts_dirty = 0;
     }
 }
@@ -1080,11 +1082,11 @@ static int store_all(void)               /* SAVE: everything, whether it changed
     bt_store();
     snd_sync();
     sd_sync_kick();
-    rc |= plat_store_save(OBJ_SOUND, &sd, sizeof sd);
+    rc |= store_put(OBJ_SOUND, &sd, sizeof sd);
     snd_sig = sig_of(&sd, sizeof sd);
     for (i = 0; i < NBANK; i++) {
         bank_pack(i * NPB);
-        rc |= plat_store_save(OBJ_BANK0 + (uint32_t)i, &bk_buf, sizeof bk_buf);
+        rc |= store_put(OBJ_BANK0 + (uint32_t)i, &bk_buf, sizeof bk_buf);
         bank_sig[i] = sig_of(&bk_buf, sizeof bk_buf);
     }
     return rc;
@@ -1102,7 +1104,7 @@ static int autosave_tick(void)           /* 1: one object written or checked; th
     if (i == 0) {
         sd_sync_kick();
         if (sig_of(&sd, sizeof sd) != snd_sig) {
-            plat_store_save(OBJ_SOUND, &sd, sizeof sd);
+            store_put(OBJ_SOUND, &sd, sizeof sd);
             snd_sig = sig_of(&sd, sizeof sd);
             clean = 0;
             return 0;
@@ -1111,7 +1113,7 @@ static int autosave_tick(void)           /* 1: one object written or checked; th
         bank_pack((i - 1) * NPB);
         uint32_t g = sig_of(&bk_buf, sizeof bk_buf);
         if (g != bank_sig[i - 1]) {
-            plat_store_save(OBJ_BANK0 + (uint32_t)(i - 1), &bk_buf, sizeof bk_buf);
+            store_put(OBJ_BANK0 + (uint32_t)(i - 1), &bk_buf, sizeof bk_buf);
             bank_sig[i - 1] = g;
             clean = 0;
             return 0;
@@ -1135,10 +1137,9 @@ static void pj_scan(void)                /* the project slots: which hold one, a
     }
 }
 
-static void load_all(void)
+static void load_data(void)              /* everything but what Bluetooth keeps (a backup does not hold that) */
 {
     int i, ok = plat_store_load(OBJ_SOUND, &sd, sizeof sd) == (int)sizeof sd && sd.magic == SND_MAGIC;
-    bt_load();
     if (!ok)
         defaults();
     for (i = 0; i < NPK; i++)
@@ -1157,11 +1158,16 @@ static void load_all(void)
     if (!ok)                             /* no sound in the flash yet: the first autosave writes it, or the banks would not be read back (they follow the sound) */
         snd_sig ^= 1u;
 }
+static void load_all(void)
+{
+    bt_load();
+    load_data();
+}
 
 static int pre_save_obj(int k)
 {
     up[k].magic = PRE_MAGIC;
-    return plat_store_save(OBJ_PRE0 + (uint32_t)k, &up[k], sizeof up[k]);
+    return store_put(OBJ_PRE0 + (uint32_t)k, &up[k], sizeof up[k]);
 }
 static int pre_save_slot(int k, int slot)        /* the live settings of a kind into a user slot */
 {
@@ -1198,10 +1204,10 @@ static int prj_save(int p)
     scopy(m.name, sd.pname, PN);
     m.s = sd;
     m.s.magic = SND_MAGIC;
-    rc = plat_store_save(PJ_OBJ(p, 0), &m, sizeof m);
+    rc = store_put(PJ_OBJ(p, 0), &m, sizeof m);
     for (j = 0; j < PROJ_BANKS; j++) {
         bank_pack(j * NPB);
-        rc |= plat_store_save(PJ_OBJ(p, 1 + j), &bk_buf, sizeof bk_buf);
+        rc |= store_put(PJ_OBJ(p, 1 + j), &bk_buf, sizeof bk_buf);
     }
     if (!rc) {
         pj_used[p] = 1;
@@ -1238,7 +1244,7 @@ static int prj_clear(int p)
     static prj_t m;
     int rc;
     m.magic = 0;
-    rc = plat_store_save(PJ_OBJ(p, 0), &m, 16);
+    rc = store_put(PJ_OBJ(p, 0), &m, 16);
     if (!rc) {
         pj_used[p] = 0;
         pj_name[p][0] = 0;
@@ -1331,6 +1337,32 @@ void app_init(void)
     sq.step = (uint8_t)(pats[0].len - 1u);
     sq.kstep = (uint8_t)(pats[0].klen - 1u);
     sq.dur = sq.len;
+}
+
+/* Backup and restore over USB (fm1.toml backup = true, the mirror page's Projects panel): the sound, the banks, the user
+ * presets and the projects; never the panel's calibration (the unit's) or what Bluetooth keeps. */
+int app_backup_playing(void) { return sq.running; }
+void app_backup_flush(void)              /* a backup starts with the sequencer stopped: what is not saved yet, saved */
+{
+    for (int n = 0; n < 4 * (NBANK + 1) && !autosave_tick(); n++)
+        ;
+    dirty = 0;
+    if (bts_dirty)
+        bt_store();
+}
+void app_backup_hold(int on) { bk_hold = (uint8_t)(on != 0); }
+void app_backup_restored(void)           /* the flash holds the restored set: loaded as at power-on */
+{
+    load_data();
+    sq.queued = -1;
+    sq.cur = 0;
+    snd_pull(0);
+    publish();
+    tempo_set();
+    sq.step = (uint8_t)(pats[0].len - 1u);
+    sq.kstep = (uint8_t)(pats[0].klen - 1u);
+    sq.dur = sq.len;
+    dirty = 0;
 }
 
 /* ------------------------------------------------------------------- UI --- */
@@ -2180,6 +2212,10 @@ static void on_button(uint32_t b)
         ui.play_t = plat_ms();
         break;
     case B_SAVE:
+        if (bk_hold) {
+            app_say("BACKUP RUNNING", "SAVE AGAIN");
+            break;
+        }
         lib_commit();
         if (store_all() == 0) {
             dirty = 0;
@@ -4622,11 +4658,11 @@ void app_frame(void)
     static uint32_t last_k;
     input();
     snd_sync();                          /* what was changed belongs to the pattern playing */
-    if (dirty && !sq.running && now - edit_t >= 1500u && autosave_tick()) {    /* the autosave: all saved */
+    if (dirty && !bk_hold && !sq.running && now - edit_t >= 1500u && autosave_tick()) {    /* the autosave: all saved */
         dirty = 0;
         ui.d_head = 1;
     }
-    if (bts_dirty && !sq.running && now - bts_t >= 1500u)    /* what Bluetooth keeps, or its switch */
+    if (bts_dirty && !bk_hold && !sq.running && now - bts_t >= 1500u)    /* what Bluetooth keeps, or its switch */
         bt_store();
     bt_poll();
     if (now - ui.cpu_t >= 500u) {
@@ -4925,7 +4961,7 @@ int app_expect(const char *what, int *got)
             for (i = 0; i < SNDSZ; i++)
                 o[3 + NPK + i] = a.snd[i];
         }
-        plat_store_save(OBJ_BANK0 + 10u, &bk_buf, sizeof bk_buf);
+        store_put(OBJ_BANK0 + 10u, &bk_buf, sizeof bk_buf);
         ok = bank_load(OBJ_BANK0 + 10u, 10 * NPB);
         for (j = 0; j < NPB; j++) {
             const pat_t *q = &pats[10 * NPB + j];
@@ -4938,7 +4974,7 @@ int app_expect(const char *what, int *got)
         for (j = 0; j < NPB; j++)
             pats[10 * NPB + j] = keep[j];
         bank_pack(10 * NPB);
-        plat_store_save(OBJ_BANK0 + 10u, &bk_buf, sizeof bk_buf);
+        store_put(OBJ_BANK0 + 10u, &bk_buf, sizeof bk_buf);
         *got = ok;
         return 1;
     }
@@ -4994,6 +5030,33 @@ int app_expect(const char *what, int *got)
         *got = sd.pon;
     else if (!strcmp(what, "dirty"))
         *got = dirty;
+    else if (!strcmp(what, "bkhold") || !strcmp(what, "bkfree"))      /* a backup starts streaming / ends (app_backup_hold) */
+    {
+        app_backup_hold(what[2] == 'h');
+        *got = bk_hold;
+    }
+    else if (!strcmp(what, "bkflush"))                               /* a backup starts, stopped: what is not saved yet is saved */
+    {
+        app_backup_flush();
+        *got = dirty;
+    }
+    else if (!strcmp(what, "bkrestore"))                             /* the flash holds a restored set: everything loaded again */
+    {
+        app_backup_restored();
+        *got = 0;
+    }
+    else if (!strcmp(what, "bkplaying"))
+        *got = app_backup_playing();
+    else if (!strcmp(what, "bkcopyp"))                               /* project slot 1 into slot 2 (from 0), object by object (a restored file's way) */
+    {
+        static uint8_t b[3840];
+        int rc = 0;
+        for (int j = 0; j < 4; j++) {
+            int n = plat_store_load(PJ_OBJ(1, j), b, sizeof b);
+            rc |= n > 0 ? store_put(PJ_OBJ(2, j), b, (uint32_t)n) : 0;
+        }
+        *got = rc;
+    }
     else if (!strcmp(what, "sok"))
         *got = p->sok;
     else if (!strncmp(what, "sokp", 4) && what[4])           /* sokpN: pattern N has a sound of its own */

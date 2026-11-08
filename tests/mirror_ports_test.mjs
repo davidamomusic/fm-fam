@@ -95,7 +95,7 @@ const MP = mirrorPorts("Template");
 {
   // the whole page as tools/make_site.py fills it: every {{KEY}} filled, its script parses
   const PANEL_JS = fs.readFileSync(path.join(root, "web/fm1panel.js"), "utf8").replace(/^export\s+/gm, "");
-  const page = html.replace(/\{\{([A-Z_]+)\}\}/g, (x, k) => ({ NAME: "Template", PORTS_JS, PANEL_JS }[k] ?? x));
+  const page = html.replace(/\{\{([A-Z_]+)\}\}/g, (x, k) => ({ NAME: "Template", PORTS_JS, PANEL_JS, EXTRA_HTML: "", EXTRA_JS: "" }[k] ?? x));
   const left = page.match(/\{\{[A-Z_]+\}\}/g);
   check(!left, `the page filled: ${left ? left.join(" ") : "no {{KEY}} left"}`);
   const js = /<script>([\s\S]*?)<\/script>/.exec(page);

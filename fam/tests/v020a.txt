@@ -1,0 +1,71 @@
+# FM-FAM v0.20: backup and restore over USB (the app's side: app_backup_playing, _flush, _hold, _restored)
+wait 3000
+expect bkplaying 0
+expect dirty 0
+expect trig1 0
+# a change not saved yet: a backup that starts with the sequencer stopped saves it first
+tap SEQ
+tapkey w1
+wait 60
+expect trig1 1
+expect dirty 1
+expect bkflush 0
+expect dirty 0
+# while a backup streams nothing is saved: the autosave waits, SAVE changes nothing
+expect bkhold 1
+tapkey w1
+wait 60
+expect trig1 2
+expect dirty 1
+wait 3000
+expect dirty 1
+tap SAVE
+wait 60
+expect dirty 1
+# the backup ends: the autosave goes on
+expect bkfree 0
+wait 3000
+expect dirty 0
+# the sequencer playing: a backup is made as it is and a restore is refused
+tap PLAY
+wait 200
+expect bkplaying 1
+tap PLAY
+wait 200
+expect bkplaying 0
+# a restore: what the flash holds comes back and what was not saved goes
+tapkey w1
+wait 60
+expect trig1 0
+expect dirty 1
+expect bkrestore 0
+expect trig1 2
+expect dirty 0
+# a project restored into another slot (a project file imported there): the lists see it and it loads as it was
+tap EDIT
+spin K1 3
+expect syn0 67
+tap HOME
+tapkey w1
+wait 60
+spin K2 1
+expect hact 1
+spin K4 1
+wait 100
+expect pj1 1
+expect pj2 0
+expect bkcopyp 0
+expect bkrestore 0
+expect pj1 1
+expect pj2 1
+tap EDIT
+spin K1 -10
+expect syn0 34
+tap HOME
+tapkey w2
+wait 60
+spin K2 -1
+expect hact 0
+spin K4 1
+wait 100
+expect syn0 67

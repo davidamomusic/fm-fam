@@ -1,0 +1,55 @@
+<style>
+.projects { margin: 1.4rem 0 0; padding: .9rem 1rem 1rem; background: var(--card); border: 1px solid var(--rule); border-radius: 12px; }
+.projects h2 { font: 600 1.25rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .3rem; }
+.projects h3 { font: 600 1.05rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 1rem 0 .2rem; }
+.projects p { margin: .3rem 0; color: var(--muted); max-width: 72ch; }
+.projects .row { display: flex; flex-wrap: wrap; gap: .5rem .8rem; align-items: center; margin: .6rem 0; }
+.projects button { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--rule); border-radius: 8px;
+                   padding: .25em .7em; cursor: pointer; }
+.projects button.primary { background: var(--accent); border-color: var(--accent); color: #2a140a; font-weight: 600; }
+.projects button:disabled { opacity: .5; cursor: default; }
+.projects ol { list-style: none; margin: .4rem 0; padding: 0; display: grid; gap: .4rem; max-width: 52rem; }
+.projects li { display: flex; flex-wrap: wrap; gap: .4rem .8rem; align-items: center; padding: .4rem .6rem; background: var(--ground);
+               border: 1px solid var(--rule); border-radius: 8px; }
+.projects .slot { font-weight: 600; min-width: 6rem; }
+.projects .pname { flex: 1 1 7rem; min-width: 0; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.projects .pname.empty { color: var(--muted); }
+.projects .ask { margin: .6rem 0; padding: .6rem .8rem; border: 1px solid var(--teal); border-radius: 8px; max-width: 60rem; }
+.projects .ask p { color: var(--ink); }
+.projects progress { width: 100%; max-width: 30rem; }
+.projects .msg { margin: .3rem 0; color: var(--ink); }
+.projects .msg.err { color: var(--accent-ink); font-weight: 600; }
+.projects .msg.wait { font-weight: 600; }
+.projects input[type="file"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); }
+</style>
+<section class="projects" id="projects" aria-labelledby="projectsH">
+  <h2 id="projectsH">Projects and backup</h2>
+  <p>Save a project from the FM-1 to a file on this computer, or put a project file back into any of its four slots.
+    You can also save everything {{NAME}} keeps (the sound, the patterns, the presets and the projects) and load it back later.
+    This needs {{NAME}} 0.20 or later on the FM-1, connected above. The screen stops for a few seconds while the FM-1 sends or takes the data.</p>
+  <div class="row">
+    <button id="pjRead" class="primary" type="button" disabled>Read the FM-1</button>
+    <span class="msg" id="pjStatus" role="status" aria-live="polite">Connect to the FM-1 above first.</span>
+  </div>
+  <progress id="pjBar" max="100" hidden aria-label="Progress"></progress>
+  <div class="ask" id="pjAsk" role="group" aria-labelledby="pjAskText" hidden>
+    <p id="pjAskText"></p>
+    <div class="row">
+      <button id="pjAskYes" class="primary" type="button">Yes</button>
+      <button id="pjAskNo" type="button">Cancel</button>
+    </div>
+  </div>
+  <h3>Projects</h3>
+  <ol id="pjList" aria-label="The four project slots"></ol>
+  <p>A project file holds a project's sound and its patterns A to C. It can go into any slot, and into any FM-1 running {{NAME}}.
+    To put one in, the sequencer must be stopped. The FM-1 then asks you to press <b>SEL</b> to confirm, or <b>HOME</b> to cancel.</p>
+  <h3>Everything</h3>
+  <div class="row">
+    <button id="pjAll" type="button" disabled>Save everything to a file</button>
+    <button id="pjAllLoad" type="button" disabled>Load everything from a file&hellip;</button>
+  </div>
+  <p>A backup does not hold the button calibration, which belongs to the FM-1, or the Bluetooth pairing. Loading a backup replaces
+    everything {{NAME}} has saved, and the FM-1 asks you to confirm with <b>SEL</b> first. A cut cable or a damaged file changes nothing.</p>
+  <input type="file" id="pjFileProject" accept=".fampj" tabindex="-1" aria-hidden="true">
+  <input type="file" id="pjFileAll" accept=".{{EXT}}" tabindex="-1" aria-hidden="true">
+</section>

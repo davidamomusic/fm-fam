@@ -11,7 +11,9 @@
   manual/index.html, img/     the manual (APP_DIR/docs/MANUAL.md, its images from APP_DIR/docs/img), if there is one
   emu/                        the firmware in the browser (APP_DIR/build/emu: tools/build.py APP_DIR --web)
   words/                      the screen reader's words files (APP_DIR/web/words), every one ever made
-  mirror/index.html           the screen mirror (web/mirror/index.html, with fm1ports.js inlined), with mirror = true
+  mirror/index.html           the screen mirror (web/mirror/index.html, with fm1ports.js inlined), with mirror = true; the
+                              firmware's own part of it, if it has one: APP_DIR/mirror/extra.html (under the panel) and
+                              extra.js (script; {{BACKUP_PROTOCOL}}, {{OBJ_XXX}}, {{APP_VERSION}}; see mirror_extras)
   backup/index.html           backup and restore in the browser (web/backup/index.html, with fm1ports.js inlined), with
                               backup = true: its magic and version from APP_DIR/app.h (APP_BACKUP_MAGIC, APP_BACKUP_VERSION)
   firmware/NAME-VERSION.fwsc  the package the installer writes; also the download
@@ -90,6 +92,56 @@ def backup_values(app, conf):
                         "repository. It does the same, and makes the same files."}
 
 
+def backup_protocol_js(app, conf):
+    """the backup page's protocol (web/backup/index.html between its "backup protocol" markers: framing, the image, backup,
+    restore) filled in for the app, as a block for another page. Its ports code is left out: the page has its own."""
+    html = (SRC / "web" / "backup" / "index.html").read_text(encoding="utf-8")
+    m = re.search(r"^// --- backup protocol: begin.*?^// --- backup protocol: end[^\n]*\n", html, re.S | re.M)
+    if not m:
+        raise SystemExit("web/backup/index.html: no backup protocol markers")
+    return fill(m.group(0), dict(backup_values(app, conf), PORTS_JS=""), "web/backup protocol")
+
+
+def app_enum(app):
+    """the object ids of app.h's first enum {OBJ_...} in order -> {"OBJ_SOUND": 0, ...}"""
+    src = (Path(app) / "app.h").read_text(encoding="utf-8")
+    m = re.search(r"enum\s*\{([^}]*\bOBJ_[A-Z0-9_]+[^}]*)\}", src)
+    if not m:
+        raise SystemExit(f"{app}/app.h: no enum of OBJ_ ids")
+    names = [x.split("=")[0].strip() for x in m.group(1).split(",") if x.strip()]
+    return {n: i for i, n in enumerate(names)}
+
+
+def app_define(app, name):
+    """app.h's #define NAME "text" -> text"""
+    m = re.search(r'#define\s+' + name + r'\s+"([^"]*)"', (Path(app) / "app.h").read_text(encoding="utf-8"))
+    return m.group(1) if m else ""
+
+
+def mirror_extras(app, conf):
+    """the firmware's own part of its mirror page: APP/mirror/extra.html (under the panel) and extra.js (script), if it has
+    them. In them: {{BACKUP_PROTOCOL}} (the backup protocol, with backup = true), {{OBJ_XXX}} (the number of app.h's OBJ_XXX),
+    {{APP_VERSION}}, the backup page's values ({{NAME}}, {{MAGIC}}, {{BACKUP_VERSION}}, {{EXT}}, {{HOLDS}})"""
+    d = Path(app) / "mirror"
+    if not (d / "extra.html").exists() and not (d / "extra.js").exists():
+        return {"EXTRA_HTML": "", "EXTRA_JS": ""}
+    values = {"NAME": conf.get("name", Path(app).name), "APP_VERSION": app_define(app, "APP_VERSION")}
+    enum = None
+    if conf.get("backup"):
+        values.update({k: v for k, v in backup_values(app, conf).items() if k in ("MAGIC", "BACKUP_VERSION", "EXT", "HOLDS")})
+        values["BACKUP_PROTOCOL"] = backup_protocol_js(app, conf)
+    out = {}
+    for key, fname in (("EXTRA_HTML", "extra.html"), ("EXTRA_JS", "extra.js")):
+        text = (d / fname).read_text(encoding="utf-8") if (d / fname).exists() else ""
+        for ph in set(re.findall(r"\{\{(OBJ_[A-Z0-9_]+)\}\}", text)):
+            enum = enum or app_enum(app)
+            if ph not in enum:
+                raise SystemExit(f"{d / fname}: {{{{{ph}}}}} is not in app.h's enum")
+            text = text.replace("{{" + ph + "}}", str(enum[ph]))
+        out[key] = fill(text, values, str(d / fname))
+    return out
+
+
 def tool_pages(app, conf=None, values=None):
     """{"mirror/index.html": html, "backup/index.html": html}, as fm1.toml asks (mirror, backup), filled in; values:
     the firmware's own, over the defaults (EXTRA: its notes; EXTRAS_JS: its own sections, web/backup/index.html)"""
@@ -99,7 +151,7 @@ def tool_pages(app, conf=None, values=None):
     if conf.get("mirror"):
         out["mirror/index.html"] = fill((SRC / "web" / "mirror" / "index.html").read_text(encoding="utf-8"),
                                         dict({"NAME": conf.get("name", app.name), "PORTS_JS": ports_js(), "PANEL_JS": panel_js()},
-                                             **(values or {})),
+                                             **mirror_extras(app, conf), **(values or {})),
                                         "web/mirror")
     if conf.get("backup"):
         out["backup/index.html"] = fill((SRC / "web" / "backup" / "index.html").read_text(encoding="utf-8"),
