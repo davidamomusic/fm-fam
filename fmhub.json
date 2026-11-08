@@ -1,5 +1,5 @@
 {
-  "what": "A drum synth and 16-step sequencer: two oscillators with 16 wave types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects chain, random pages, scales, presets and projects.",
+  "what": "Dfam style 16-step sequencer and a drum synth: two oscillators with 16 wave types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects chain, random pages, scales, presets and projects.",
   "kinds": "drums",
   "image": "fam/card.png",
   "color": "#4ADE80"
