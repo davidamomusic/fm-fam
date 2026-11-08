@@ -45,6 +45,10 @@ The host simulator runs the app on a PC, with a simulated Bluetooth radio:
 
 Every script in `fam/tests` is a test (keys, knobs, screens, saving across a reboot, Bluetooth states, audio).
 
+`fam/docs` has what the main README shows: the screenshots (`fam/tests/readme.txt` takes them in the simulator and
+`fam/docs/make_screens.py` turns them into `fam/docs/screens`) and the cheat sheet (`fam/docs/make_cheatsheet.py` builds
+the PDF and the web page; it needs Chrome).
+
 ## Identity and package
 
 The identity is `FM-1_111` in every release; `fam/release.sh` sets it. The same text is in the package and in the

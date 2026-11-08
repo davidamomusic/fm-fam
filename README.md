@@ -1,3 +1,161 @@
+# FM-FAM
+
+**Description:** DFAM style 16-step sequencer and a drum synth for the FM-1. It has two oscillators with 16 wave types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects chain, random pages, scales, presets and projects. Bluetooth audio is experimental.
+
+[Install: release 0.19](https://github.com/davidamomusic/fm-fam/releases/tag/v0.19) &middot; [Cheat sheet](fam/docs/FM-FAM-cheatsheet.pdf) &middot; [Build and details](fam/README.md)
+
+## Screenshots
+
+The pages of every mode, as drawn by the host simulator, which runs the same app code as the FM-1 (the screen is 240x240). The app's screens and its manual (HOME pages 7 to 10) are in English.
+
+### SEQ
+
+The 16-step sequencer: step values, step conditions and pattern settings, and the tempo.
+
+<table>
+<tr>
+<td align="center"><img src="fam/docs/screens/seq-1.png" width="240" alt="SEQ: Step edit"><br><sub>Step edit</sub></td>
+<td align="center"><img src="fam/docs/screens/seq-2.png" width="240" alt="SEQ: Step and pattern"><br><sub>Step and pattern</sub></td>
+<td align="center"><img src="fam/docs/screens/seq-3.png" width="240" alt="SEQ: Tempo"><br><sub>Tempo</sub></td>
+</tr>
+</table>
+
+### SYNTH
+
+The synth voice: `EDIT`, and `ENV` for its envelopes.
+
+<table>
+<tr>
+<td align="center"><img src="fam/docs/screens/syn-1.png" width="240" alt="SYNTH: Oscillators"><br><sub>Oscillators</sub></td>
+<td align="center"><img src="fam/docs/screens/syn-2.png" width="240" alt="SYNTH: Filter and noise"><br><sub>Filter and noise</sub></td>
+<td align="center"><img src="fam/docs/screens/syn-3.png" width="240" alt="SYNTH: Envelopes"><br><sub>Envelopes</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="fam/docs/screens/syn-4.png" width="240" alt="SYNTH: Mixer"><br><sub>Mixer</sub></td>
+<td align="center"><img src="fam/docs/screens/syn-5.png" width="240" alt="SYNTH: Modulation"><br><sub>Modulation</sub></td>
+<td align="center"><img src="fam/docs/screens/syn-6.png" width="240" alt="SYNTH: Output"><br><sub>Output</sub></td>
+</tr>
+</table>
+
+### PATCH
+
+`LFO`: the patch bay, eight virtual cables (here with a preset loaded).
+
+<table>
+<tr>
+<td align="center"><img src="fam/docs/screens/patch-1.png" width="240" alt="PATCH: Virtual patch bay"><br><sub>Virtual patch bay</sub></td>
+</tr>
+</table>
+
+### KICK
+
+`ARP`: the drum voice with a 16-step sequencer of its own.
+
+<table>
+<tr>
+<td align="center"><img src="fam/docs/screens/kick-1.png" width="240" alt="KICK: Kick sequence 1"><br><sub>Kick sequence 1</sub></td>
+<td align="center"><img src="fam/docs/screens/kick-2.png" width="240" alt="KICK: Kick sequence 2"><br><sub>Kick sequence 2</sub></td>
+<td align="center"><img src="fam/docs/screens/kick-3.png" width="240" alt="KICK: Pitch and decay"><br><sub>Pitch and decay</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="fam/docs/screens/kick-4.png" width="240" alt="KICK: Tone"><br><sub>Tone</sub></td>
+<td align="center"><img src="fam/docs/screens/kick-5.png" width="240" alt="KICK: FM and noise"><br><sub>FM and noise</sub></td>
+</tr>
+</table>
+
+### FX
+
+`FX`: the effects chain, one page for each effect and a mixer.
+
+<table>
+<tr>
+<td align="center"><img src="fam/docs/screens/fx-1.png" width="240" alt="FX: Compressor"><br><sub>Compressor</sub></td>
+<td align="center"><img src="fam/docs/screens/fx-2.png" width="240" alt="FX: Delay"><br><sub>Delay</sub></td>
+<td align="center"><img src="fam/docs/screens/fx-3.png" width="240" alt="FX: Reverb"><br><sub>Reverb</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="fam/docs/screens/fx-4.png" width="240" alt="FX: Stutter"><br><sub>Stutter</sub></td>
+<td align="center"><img src="fam/docs/screens/fx-5.png" width="240" alt="FX: DJ filter"><br><sub>DJ filter</sub></td>
+<td align="center"><img src="fam/docs/screens/fx-6.png" width="240" alt="FX: Limiter"><br><sub>Limiter</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="fam/docs/screens/fx-7.png" width="240" alt="FX: FX mixer"><br><sub>FX mixer</sub></td>
+</tr>
+</table>
+
+### PATTERNS
+
+`GLO`: 176 patterns, a 32-slot song, a sound for each pattern and Bluetooth (the devices on the last page are the simulator's stand-ins).
+
+<table>
+<tr>
+<td align="center"><img src="fam/docs/screens/patt-1.png" width="240" alt="PATTERNS: Patterns"><br><sub>Patterns</sub></td>
+<td align="center"><img src="fam/docs/screens/patt-2.png" width="240" alt="PATTERNS: Song"><br><sub>Song</sub></td>
+<td align="center"><img src="fam/docs/screens/patt-3.png" width="240" alt="PATTERNS: Pattern sound 1"><br><sub>Pattern sound 1</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="fam/docs/screens/patt-4.png" width="240" alt="PATTERNS: Pattern sound 2"><br><sub>Pattern sound 2</sub></td>
+<td align="center"><img src="fam/docs/screens/patt-5.png" width="240" alt="PATTERNS: Bluetooth"><br><sub>Bluetooth</sub></td>
+</tr>
+</table>
+
+### SCALE
+
+`SCL`: the root, the scale and the tuning of every note but the kick.
+
+<table>
+<tr>
+<td align="center"><img src="fam/docs/screens/scale-1.png" width="240" alt="SCALE: Scale and root"><br><sub>Scale and root</sub></td>
+<td align="center"><img src="fam/docs/screens/scale-2.png" width="240" alt="SCALE: Tuning"><br><sub>Tuning</sub></td>
+</tr>
+</table>
+
+### HOME
+
+Projects, presets and the manual built into the firmware.
+
+<table>
+<tr>
+<td align="center"><img src="fam/docs/screens/home-1.png" width="240" alt="HOME: Projects"><br><sub>Projects</sub></td>
+<td align="center"><img src="fam/docs/screens/home-2.png" width="240" alt="HOME: Synth presets"><br><sub>Synth presets</sub></td>
+<td align="center"><img src="fam/docs/screens/home-3.png" width="240" alt="HOME: Kick presets"><br><sub>Kick presets</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="fam/docs/screens/home-4.png" width="240" alt="HOME: FX presets"><br><sub>FX presets</sub></td>
+<td align="center"><img src="fam/docs/screens/home-5.png" width="240" alt="HOME: Patch presets"><br><sub>Patch presets</sub></td>
+<td align="center"><img src="fam/docs/screens/home-6.png" width="240" alt="HOME: Scale presets"><br><sub>Scale presets</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="fam/docs/screens/home-7.png" width="240" alt="HOME: Help: buttons"><br><sub>Help: buttons</sub></td>
+<td align="center"><img src="fam/docs/screens/home-8.png" width="240" alt="HOME: Help: steps and keys"><br><sub>Help: steps and keys</sub></td>
+<td align="center"><img src="fam/docs/screens/home-9.png" width="240" alt="HOME: Help: knobs and FX"><br><sub>Help: knobs and FX</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="fam/docs/screens/home-10.png" width="240" alt="HOME: Help: sound"><br><sub>Help: sound</sub></td>
+</tr>
+</table>
+
+### RANDOM
+
+`REC`: one page for every page of the other modes (23 in all); two of them.
+
+<table>
+<tr>
+<td align="center"><img src="fam/docs/screens/random-synth.png" width="240" alt="RANDOM: Synth oscillators"><br><sub>Synth oscillators</sub></td>
+<td align="center"><img src="fam/docs/screens/random-kick.png" width="240" alt="RANDOM: Kick sequence"><br><sub>Kick sequence</sub></td>
+</tr>
+</table>
+
+## Cheat sheet
+
+The controls on two A4 pages: [FM-FAM-cheatsheet.pdf](fam/docs/FM-FAM-cheatsheet.pdf), to print or to keep next to the FM-1. The same sheet is a web page, [FM-FAM-cheatsheet.html](fam/docs/FM-FAM-cheatsheet.html) (download it and open it in a browser); [fam/docs/make_cheatsheet.py](fam/docs/make_cheatsheet.py) builds both.
+
+<p><a href="fam/docs/FM-FAM-cheatsheet.pdf"><img src="fam/docs/cheatsheet-1.png" width="400" alt="FM-FAM cheat sheet, page 1"></a> <a href="fam/docs/FM-FAM-cheatsheet.pdf"><img src="fam/docs/cheatsheet-2.png" width="400" alt="FM-FAM cheat sheet, page 2"></a></p>
+
+---
+
+*Everything below is the README of [fm1-base](https://github.com/charlesvestal/fm1-base), the platform FM-FAM is built on; FM-FAM's own README, with how to build it, is [fam/README.md](fam/README.md).*
+
 # fm1-base
 
 A base for M-VAVE FM-1 firmware, on [felucca-bsp](https://github.com/hugelton/felucca-bsp): the platform layer
