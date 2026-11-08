@@ -1,8 +1,8 @@
 # FM-FAM
 
-**Description:** DFAM style 16-step sequencer and a drum synth for the FM-1. It has two oscillators with 16 wave types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects chain, random pages, scales, presets and projects. Bluetooth audio is experimental.
+**Description:** DFAM style 16-step sequencer and a drum synth for the FM-1. It has two oscillators with 16 wave types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects chain, random pages, scales, presets and projects. 
 
-[Install: release 0.20](https://github.com/davidamomusic/fm-fam/releases/tag/v0.20) &middot; [Cheat sheet](fam/docs/FM-FAM-cheatsheet.pdf) &middot; [Screen mirror](https://davidamomusic.github.io/fm-fam/fam/docs/FM-FAM-mirror.html) &middot; [Build and details](fam/README.md)
+[Watch Video](https://youtu.be/w_OxwuAZFbY?list=RDw_OxwuAZFbY) &middot; [Cheat sheet](fam/docs/FM-FAM-cheatsheet.pdf) &middot; [Screen mirror](https://davidamomusic.github.io/fm-fam/fam/docs/FM-FAM-mirror.html) &middot; [Build and details](fam/README.md)
 
 The screen mirror shows the screen and the panel of an FM-1 running FM-FAM live on your computer, over USB, and lets you play the panel from it. It also saves a project to a file on your computer and puts one back into any of the four slots, or saves and loads everything the FM-1 keeps, and installs a version of FM-FAM from GitHub or from a file. Open it in Chrome or Edge.
 
