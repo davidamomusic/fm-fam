@@ -1,5 +1,5 @@
 name = "FM-FAM"
-id_prefix = "FM-1_77"            # plain dev builds only: release.sh sets the real identity (FM1B_ID, FM-1_8NN)
+id_prefix = "FM-1_77"            # plain dev builds only: release.sh sets the real identity (FM1B_ID, FM-1_111)
 usb_manufacturer = "FM-FAM"
 usb_product = "FM-FAM FM-1"
 o2 = ["dsp.c"]

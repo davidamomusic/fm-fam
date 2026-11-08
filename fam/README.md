@@ -47,8 +47,8 @@ Every script in `fam/tests` is a test (keys, knobs, screens, saving across a reb
 
 ## Identity and package
 
-The identity is `FM-1_8` plus the minor version as two digits (`FM-1_819` for 0.19); `fam/release.sh` works it
-out from `APP_VERSION` in `fam/app.h`. The same text is in the package and in the firmware.
+The identity is `FM-1_111` in every release; `fam/release.sh` sets it. The same text is in the package and in the
+firmware. The version of the app is `APP_VERSION` in `fam/app.h`, shown on the last four HOME pages.
 
 `fam/release.sh` writes `fam/build/fm-fam.fwsc`, the package of a release: the firmware and fm1-base's own update
 loader (felucca-bsp's, built from source in `bsp/loader`). With the same toolchain, a release asset is what this
