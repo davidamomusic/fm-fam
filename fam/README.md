@@ -48,8 +48,17 @@ Every script in `fam/tests` is a test (keys, knobs, screens, saving across a reb
 `fam/docs` has what the main README shows: the screenshots (`fam/tests/readme.txt` takes them in the simulator and
 `fam/docs/make_screens.py` turns them into `fam/docs/screens`) and the cheat sheet (`fam/docs/make_cheatsheet.py` builds
 the PDF and the web page; it needs Chrome). `fam/docs/FM-FAM-mirror.html` is the screen mirror page that
-`tools/make_site.py` fills in for FM-FAM (`tool_pages` on `fam`, from `web/mirror/index.html`; two comment lines differ). With GitHub Pages on for the branch,
-it is a live page at https://davidamomusic.github.io/fm-fam/fam/docs/FM-FAM-mirror.html.
+`tools/make_site.py` fills in for FM-FAM (`tool_pages` on `fam`, from `web/mirror/index.html` and FM-FAM's own part of it, `fam/mirror/extra.html` and
+`extra.js`: the Projects and backup section). To make it again: `python3 -c "import sys; sys.path.insert(0, 'tools'); from pathlib import Path; import make_site; sys.stdout.write(make_site.tool_pages(Path('fam'))['mirror/index.html'])" > fam/docs/FM-FAM-mirror.html`.
+With GitHub Pages on for the branch, it is a live page at https://davidamomusic.github.io/fm-fam/fam/docs/FM-FAM-mirror.html.
+
+Projects and backup (0.20): `backup = true` in `fam/fm1.toml` turns on fm1-base's backup and restore over USB (`device/backup.c`);
+`fam/app.h` lists what a backup holds (the sound, the eleven banks, the five user presets and the four projects; never the panel's
+calibration or the Bluetooth keys) and `fam/app.c` has the four hooks (`app_backup_playing`, `_flush`, `_hold`, `_restored`).
+A backup file is fm1-base's (`tools/fm1_backup.py` reads and writes the same file: `--magic FAMB`); a project file holds one project's
+four parts. The page and its protocol are tested by `node fam/tests/projects_page_test.mjs` (files, slots, a project into another slot,
+a simulated FM-1) and `node fam/tests/projects_browser_test.mjs` (the page in headless Chromium on a fake Web MIDI; skipped without
+playwright-core and a Chromium); the app's side by `fam/tests/v020a.txt`.
 
 ## Identity and package
 

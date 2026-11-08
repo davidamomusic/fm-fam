@@ -9,7 +9,7 @@ import base64, html, os, subprocess, sys
 card_png, out_dir = sys.argv[1], sys.argv[2]
 os.makedirs(out_dir, exist_ok=True)
 
-VERSION = "0.19"
+VERSION = "0.20"
 DESCRIPTION = ("DFAM style 16-step sequencer and a drum synth for the FM-1. It has two oscillators with 16 wave "
                "types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects "
                "chain, random pages, scales, presets and projects. Bluetooth audio is experimental.")
@@ -132,6 +132,10 @@ SECTIONS = [
          "K1 item, K2 action (LOAD, SAVE, RENAME, CLEAR), K3 name cursor, K4 turn right to run it, or change the "
          "letter."),
         ("A project", "Keeps the whole sound and banks A-C (48 patterns). Loading it replaces them."),
+        ("Projects and backup",
+         "On the screen mirror page (Chrome or Edge, USB): Read the FM-1, then save a project to a file or replace one "
+         "with a file, or save and load everything (sound, patterns, presets, projects). Stop the sequencer first; the "
+         "FM-1 asks `SEL` to confirm, `HOME` to cancel."),
         ("Autosave",
          "1.5 s after your last change, with the sequencer stopped; only what changed. While playing nothing is written "
          "(a flash write silences the audio for a moment); `SAVE` forces it."),
@@ -157,11 +161,11 @@ SECTIONS = [
     ]),
     ("Good to know", [
         ("Older versions",
-         "Patterns saved with 0.18 or 0.19 cannot be read by 0.17 or older: those versions show the bank as factory."),
+         "Patterns saved with 0.18 or later cannot be read by 0.17 or older: those versions show the bank as factory."),
         ("Random character",
          "Each draw picks one: mostly low sounds, 15% of the time bright hi-hat sounds. Pitched steps use a minor "
          "pentatonic."),
-        ("Screen mirror", "The screen can be mirrored over USB (Chrome or Edge, Web MIDI)."),
+        ("Screen mirror", "The screen and panel can be mirrored over USB (Chrome or Edge, Web MIDI); the same page saves projects and backups."),
         ("Leave FM-FAM",
          "Install any other firmware package with The Firmware Hub or M-UPGRADE. The package identity is FM-1_111."),
     ]),
