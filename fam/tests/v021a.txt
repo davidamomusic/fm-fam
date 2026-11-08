@@ -1,0 +1,96 @@
+# FM-FAM v0.2.1: a click of a choice encoder is one choice (a delay time, a slice, a filter type, a wave)
+#   fam/build/host/fm-fam_host fam/tests/v021a.txt DIRECTORY
+# A choice is kept as 0..127 cut in equal parts; a click puts it in the middle of the next part. At the first or the last part a
+# click down or up changes nothing, so each list is first taken to its start (the value it starts from is not known).
+wait 3000
+# SYNTH page 2: K4 is the filter type, four of them (parts of 32; the middle of part n is 32 n + 16)
+tap EDIT
+spin SELECT 1
+expect page 1
+spin K4 -3
+spin K4 1
+expect syn14 48
+spin K4 1
+expect syn14 80
+spin K4 1
+expect syn14 112
+# the end of the list: nothing changes
+spin K4 1
+expect syn14 112
+spin K4 -1
+expect syn14 80
+# what the encoder gave in one go counts: two clicks, two types
+spin K4 -2
+expect syn14 16
+# the cutoff, a number, still moves a step a click
+spin K1 1
+expect syn12 41
+# SYNTH page 1: a wave is a click too (sixteen, parts of 8: 8 n + 4)
+spin SELECT -1
+expect page 0
+spin K3 -15
+spin K3 1
+expect syn1 12
+spin K3 1
+expect syn1 20
+spin K3 -1
+expect syn1 12
+# FX page 2: K1 is the delay time, eight of them (parts of 16: 16 n + 8)
+tap FX
+wait 80
+expect mode 4
+spin SELECT 1
+expect page 1
+spin K1 -8
+spin K1 1
+expect fx8 24
+spin K1 1
+expect fx8 40
+spin K1 -1
+expect fx8 24
+# the feedback beside it is a number: a step a click
+spin K2 1
+expect fx9 51
+# FX page 4: K1 is the stutter slice
+spin SELECT 2
+expect page 3
+spin K1 -8
+spin K1 1
+expect fx4 24
+spin K1 1
+expect fx4 40
+# the last page of FX: K4 is the same slice
+spin SELECT 3
+expect page 6
+spin K4 1
+expect fx4 56
+spin K4 -1
+expect fx4 40
+spin K4 -2
+expect fx4 8
+spin K4 20
+expect fx4 120
+# a held step of the sequencer: the lock of a choice moves a part a click too
+tap SEQ
+tapkey w1
+wait 60
+tap EDIT
+spin SELECT 1
+expect page 1
+key w1 down
+wait 60
+spin K4 -1
+spin K4 -1
+key w1 up
+wait 60
+expect syn14 16
+# the kick wave: six of them (parts of 21 or 22: 21 n + 10)
+tap ARP
+spin SELECT 3
+spin K4 -6
+spin K4 1
+expect kick7 31
+spin K4 1
+expect kick7 52
+spin K4 -1
+expect kick7 31

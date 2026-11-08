@@ -1,0 +1,132 @@
+# FM-FAM v0.2.1: the strip of steps and the columns under it start and end at the same x (checked in the picture by
+#   fam/tests/align_check.py DIRECTORY, after: fam/build/host/fm-fam_host fam/tests/v021b.txt DIRECTORY)
+wait 600
+spin ALGO 3
+wait 60
+expect sel 3
+expect len 8
+wait 120
+shot seq8.png
+spin SELECT 1
+wait 60
+spin K3 -1
+wait 30
+spin K3 -1
+wait 30
+spin K3 -1
+wait 30
+spin SELECT -1
+wait 60
+expect len 5
+wait 120
+shot seq5.png
+spin SELECT 1
+wait 60
+spin K3 1
+wait 30
+spin K3 1
+wait 30
+spin K3 1
+wait 30
+spin K3 1
+wait 30
+spin K3 1
+wait 30
+spin K3 1
+wait 30
+spin SELECT -1
+wait 60
+expect len 11
+wait 120
+shot seq11.png
+spin SELECT 1
+wait 60
+spin K3 1
+wait 30
+spin SELECT -1
+wait 60
+expect len 12
+wait 120
+shot seq12.png
+spin SELECT 1
+wait 60
+spin K3 1
+wait 30
+spin SELECT -1
+wait 60
+expect len 13
+wait 120
+shot seq13.png
+spin SELECT 1
+wait 60
+spin K3 1
+wait 30
+spin K3 1
+wait 30
+spin K3 1
+wait 30
+spin SELECT -1
+wait 60
+expect len 16
+wait 120
+shot seq16.png
+tap ARP
+wait 60
+spin ALGO 3
+wait 60
+expect klen 16
+wait 120
+shot kick16.png
+spin K4 -1
+wait 30
+spin K4 -1
+wait 30
+spin K4 -1
+wait 30
+spin K4 -1
+wait 30
+expect klen 12
+wait 120
+shot kick12.png
+spin K4 -1
+wait 30
+expect klen 11
+wait 120
+shot kick11.png
+spin K4 -1
+wait 30
+spin K4 -1
+wait 30
+spin K4 -1
+wait 30
+spin K4 -1
+wait 30
+expect klen 7
+wait 120
+shot kick7.png
+spin K4 -1
+wait 30
+spin K4 -1
+wait 30
+expect klen 5
+wait 120
+shot kick5.png
+spin K4 1
+wait 30
+spin K4 1
+wait 30
+spin K4 1
+wait 30
+spin K4 1
+wait 30
+spin K4 1
+wait 30
+spin K4 1
+wait 30
+spin K4 1
+wait 30
+spin K4 1
+wait 30
+expect klen 13
+wait 120
+shot kick13.png

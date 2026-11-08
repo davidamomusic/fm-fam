@@ -1640,16 +1640,53 @@ static void bpm_add(int32_t e)
     ui.d_head = 1;
 }
 
+/* A choice (a wave, a filter type, a delay time, a slice) is kept as 0..127 and cut in n equal parts; a click moves to the
+ * next part (the middle of it, as the random puts it), so every click changes what the screen says. A value that is not in a
+ * middle (a patch loaded from before) moves to the middle of the part next to it. At the end of the list nothing changes. */
+static int choice_n(uint8_t fmt)
+{
+    switch (fmt) {
+    case F_WAV16: return 16;
+    case F_WAV6: return 6;
+    case F_MODE: return 4;
+    case F_TIME:
+    case F_SLICE: return 8;
+    default: return 0;
+    }
+}
+static int choice_step(uint8_t fmt, int v, int e)
+{
+    int n = choice_n(fmt), i, j;
+    switch (fmt) {                                  /* the part v is in: the one fmt_val shows */
+    case F_WAV16: i = (v >> 3) & 15; break;
+    case F_WAV6: i = (v * 6) >> 7; break;
+    case F_MODE: i = (v >> 5) & 3; break;
+    default: i = (v * 8) >> 7; break;
+    }
+    j = clamp(i + e, 0, n - 1);
+    if (j == i)
+        return v;
+    switch (fmt) {
+    case F_WAV16: return j * 8 + 4;
+    case F_WAV6: return j * 21 + 10;
+    case F_MODE: return j * 32 + 16;
+    default: return j * 16 + 8;
+    }
+}
+
 static void knob_turn(uint32_t kn, int32_t e)
 {
     const row_t *r = row_of(ui.mode, pg());
     uint8_t *p;
-    int v, mx;
+    int v, mx, ch;
     if (!r || kn >= r->n)
         return;
     p = r->k[kn].p;
     mx = r->k[kn].mx;
-    if (r->k[kn].fmt == F_SW || r->k[kn].fmt == F_SLOPE)       /* a switch: the first click flips it, up is on */
+    ch = choice_n(r->k[kn].fmt) != 0;
+    if (ch)                                                     /* a choice: a click a part, as many as the encoder gave */
+        ;
+    else if (r->k[kn].fmt == F_SW || r->k[kn].fmt == F_SLOPE)  /* a switch: the first click flips it, up is on */
         e = e > 0 ? 127 : -127;
     else if (mx > 20 && ui.fast)                                /* OCT- held: eight steps a click */
         e *= 8;
@@ -1665,14 +1702,14 @@ static void knob_turn(uint32_t kn, int32_t e)
             pt->lk_p[st][l] = (uint8_t)(pid + 1u);
             pt->lk_v[st][l] = *p;
         }
-        v = clamp(pt->lk_v[st][l] + e, 0, mx);
+        v = ch ? choice_step(r->k[kn].fmt, pt->lk_v[st][l], e) : clamp(pt->lk_v[st][l] + e, 0, mx);
         pt->lk_v[st][l] = (uint8_t)v;
         ui.turned = 1;
         touch();
         ui.d_vis = ui.d_foot = ui.d_strip = 1;
         return;
     }
-    v = clamp(*p + e, 0, mx);
+    v = ch ? choice_step(r->k[kn].fmt, *p, e) : clamp(*p + e, 0, mx);
     *p = (uint8_t)v;
     publish();
     touch();
@@ -3271,15 +3308,25 @@ static void draw_head(void)
 }
 
 /* ----------------------------------------------------------------- strip --- */
+/* the columns of a sequence, the strip above and the picture under it: len of them, each cw wide and two apart, together in the
+ * middle of 4..236. The division leaves some pixels over: the strip and the picture must both start where this says. */
+static int32_t col_x0(int32_t len, int32_t *cw)
+{
+    int32_t w = (232 - 2 * (len - 1)) / len;
+    *cw = w;
+    return 4 + (232 - (w * len + 2 * (len - 1))) / 2;
+}
+
 static void draw_strip(void)
 {
     pat_t *p = &pats[sq.cur];
     int kick = ui.mode == M_KICK;
-    int32_t len = kick ? p->klen : p->len, cw = (232 - 2 * (len - 1)) / len, i;
+    int32_t len = kick ? p->klen : p->len, cw, x0, i;
     uint32_t ps = kick ? sq.kstep : sq.step;
+    x0 = col_x0(len, &cw);
     cv_begin(240, 10, C_BLACK);
     for (i = 0; i < len; i++) {
-        int32_t x = 4 + i * (cw + 2);
+        int32_t x = x0 + i * (cw + 2);
         uint8_t t = kick ? p->ktrig[i] : p->trig[i];
         uint16_t c = t == 2 ? CL_M : t == 1 ? shade(CL_G, 11) : CL_DG;
         if (sq.running && ps == (uint32_t)i)
@@ -3560,8 +3607,8 @@ static void vis_seq(void)
         return;
     }
     p = cur_pat();
-    int32_t len = p->len, cw = (232 - 2 * (len - 1)) / len, x0, i, s;
-    x0 = 4 + (232 - (cw * len + 2 * (len - 1))) / 2;
+    int32_t len = p->len, cw, x0, i, s;
+    x0 = col_x0(len, &cw);
     for (i = 0; i < len; i++) {
         int32_t x = x0 + i * (cw + 2);
         int on = p->trig[i] && p->vel[i];
@@ -3710,10 +3757,10 @@ static void vis_osc(void)
 static void vis_kseq(void)
 {
     pat_t *p = cur_pat();
-    int32_t len = p->klen, cw = (232 - 2 * (len - 1)) / len, x0, i, s;
+    int32_t len = p->klen, cw, x0, i, s;
     int one = kpg() == 3u;               /* sequence 1: the bars are the volumes and a lane below has the pitches; sequence 2: conditions and ratchets */
     char t[16];
-    x0 = 4 + (232 - (cw * len + 2 * (len - 1))) / 2;
+    x0 = col_x0(len, &cw);
     if (one)
         cv_rect(4, 84, 232, 1, CL_DG);   /* the pitch lane: no shift on this line */
     for (i = 0; i < len; i++) {
