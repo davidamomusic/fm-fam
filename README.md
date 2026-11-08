@@ -6,7 +6,7 @@
 
 ## Screenshots
 
-The pages of every mode, as drawn by the host simulator, which runs the same app code as the FM-1 (the screen is 240x240). The app's screens and its manual (HOME pages 7 to 10) are in English.
+The pages of every mode, as drawn by the host simulator, which runs the same app code as the FM-1 (the screen is 240x240). 
 
 ### SEQ
 
