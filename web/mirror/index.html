@@ -403,7 +403,7 @@ document.getElementById("png").addEventListener("click", () => {
 // ---------------------------------------------------------------- MIDI
 const statusEl = document.getElementById("status"), dot = document.getElementById("dot"), nums = document.getElementById("nums");
 const inSel = document.getElementById("inSel"), outSel = document.getElementById("outSel"), connectBtn = document.getElementById("connect");
-let access = null, inPort = null, outPort = null, lastHeard = 0, heardHello = false, lastAsk = 0;
+let access = null, inPort = null, outPort = null, lastHeard = 0, heardHello = false, lastAsk = 0, suspended = false;
 function say(t, state) {
   if (statusEl.textContent !== t) statusEl.textContent = t;     // (the same words again would be read again)
   statusEl.classList.toggle("err", state === "err");
@@ -425,6 +425,7 @@ function fill(sel, ports, pick) {
 const MP = mirrorPorts(NAME), asking = new Asking(), answered = new Set();
 let seeking = 0;
 function pickPorts() {
+  if (suspended) return;
   const ins = livePorts(access.inputs), outs = livePorts(access.outputs);
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(`${SLUG}-mirror-ports`) || "{}"); } catch {}
@@ -438,12 +439,13 @@ function pickPorts() {
 async function seekPorts() {
   const gen = ++seeking;
   const got = await MP.seek(access, asking, answered);
-  if (gen !== seeking || !got || (inPort && outPort)) return;     // (picked meanwhile, or the ports changed again)
+  if (suspended || gen !== seeking || !got || (inPort && outPort)) return;     // (picked meanwhile, or the ports changed again)
   inSel.value = got.input.id;
   outSel.value = got.output.id;
   attach();
 }
 function attach() {
+  if (suspended) return;
   const i = access.inputs.get(inSel.value) || null, o = access.outputs.get(outSel.value) || null;
   if (i !== inPort) {
     if (inPort) inPort.onmidimessage = null;
@@ -480,6 +482,7 @@ async function connect() {
     if (seen.get(p.id) === p.state) return;
     seen.set(p.id, p.state);
     if (p.state === "disconnected") asking.forget(p.id);   // (plugged in again: asked again)
+    if (suspended) return;                             // (an update has the ports: the FM-1 comes and goes on purpose)
     if (inPort) inPort.onmidimessage = null;           // the FM-1 back (or gone): the ports picked afresh, a refresh
     inPort = outPort = null;
     pickPorts();
@@ -488,13 +491,30 @@ async function connect() {
 }
 // The firmware's own tools on this page (tools/make_site.py: APP/mirror/extra.html and extra.js, EXTRA_HTML, EXTRA_JS), a
 // backup say: while one has the ports the mirror lets go of them (its keep-alive stops, so does its Control), and the
-// FM-1 sends it nothing; when it is done the mirror asks for the whole screen again.
+// FM-1 sends it nothing; when it is done the mirror asks for the whole screen again. A firmware update (suspend, resume)
+// takes more: the FM-1 restarts twice, under other port names, so the mirror drops its ports and picks them afresh after.
 let toolSink = null;
 const mirrorTool = {
   ports: () => (access && inPort && outPort ? { input: inPort, output: outPort } : null),
   take(sink) { if (control) setControl(false); toolSink = sink; },
   give() { toolSink = null; lastHeard = performance.now(); heardHello = false; mirror.resync(); send(2); },
   get connected() { return !!(access && inPort && outPort); },
+  get access() { return access; },                   // the Web MIDI access (null until Connect), for a tool that finds the FM-1 itself
+  suspend() {
+    if (control) setControl(false);
+    seeking++;
+    if (inPort) inPort.onmidimessage = null;
+    inPort = outPort = null;
+    toolSink = null;
+    suspended = true;
+    say("Updating the firmware. Do not unplug the FM-1.", "wait");
+    portListeners.forEach((fn) => fn());
+  },
+  resume() {
+    suspended = false;
+    if (access) pickPorts();
+    else portListeners.forEach((fn) => fn());
+  },
   onports(fn) { portListeners.push(fn); },
 };
 const portListeners = [];

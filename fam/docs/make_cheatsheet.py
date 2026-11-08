@@ -165,7 +165,7 @@ SECTIONS = [
         ("Random character",
          "Each draw picks one: mostly low sounds, 15% of the time bright hi-hat sounds. Pitched steps use a minor "
          "pentatonic."),
-        ("Screen mirror", "The screen and panel can be mirrored over USB (Chrome or Edge, Web MIDI); the same page saves projects and backups."),
+        ("Screen mirror", "Mirrors the screen and panel over USB (Chrome or Edge). The same page saves projects and backups, and installs versions."),
         ("Leave FM-FAM",
          "Install any other firmware package with The Firmware Hub or M-UPGRADE. The package identity is FM-1_111."),
     ]),

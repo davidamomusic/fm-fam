@@ -1,7 +1,11 @@
 // ---------------------------------------------------------------- Projects and backup (fam/mirror/extra.js, fam/mirror/extra.html;
 // fam/tests/projects_page_test.mjs). The FM-1's backup and restore (device/backup.c) over the ports this page has, the mirror
-// stopped meanwhile: a backup of everything {{NAME}} saves, and a project taken out of it or put into it.
+// stopped meanwhile: a backup of everything {{NAME}} saves, and a project taken out of it or put into it. Below it, Install a
+// version: a release of this firmware, or a package file, written to the FM-1 (fam/tests/install_page_test.mjs).
 {{BACKUP_PROTOCOL}}
+{{OTA_JS}}
+// the ports are one tool's at a time: a backup, a project, an update (each tool's own update() is hooked in)
+const TOOLS = { on: false, hooks: [], set(v) { this.on = v; this.hooks.forEach((f) => f()); } };
 
 // --- projects: begin (fam/tests/projects_page_test.mjs runs this part in Node, after the backup protocol above)
 // A project is four of the backup's parts: its sound and name (app.c prj_t), then the patterns of banks A, B and C. Slot p
@@ -159,9 +163,10 @@ async function session(fn) {
 }
 
 function update() {
-  const on = mirrorTool.connected && !busy;
+  const on = mirrorTool.connected && !busy && !TOOLS.on;
   readBtn.disabled = allBtn.disabled = allLoadBtn.disabled = !on;
   list.querySelectorAll("button").forEach((b) => { b.disabled = !on || b.dataset.needs === "never" || (b.dataset.needs === "used" && !last); });
+  if (TOOLS.on && !busy) return;                                 // (another tool has the ports: its own words)
   if (!mirrorTool.connected && !busy) pjSay("Connect to the FM-1 above first.");
   else if (mirrorTool.connected && !busy && !last && statusEl.textContent.startsWith("Connect")) pjSay(`Press "Read the FM-1" to see its projects.`);
 }
@@ -239,12 +244,12 @@ function confirmAsk(text, yes) {
 }
 
 async function run(fn) {
-  if (busy) return;
+  if (busy || TOOLS.on) return;
   busy = true;
-  update();
+  TOOLS.set(true);
   try { await fn(); }
   catch (e) { pjSay(e.message || String(e), "err"); }
-  finally { busy = false; pjProgress(false); update(); }
+  finally { busy = false; pjProgress(false); TOOLS.set(false); }
 }
 
 readBtn.addEventListener("click", () => run(async () => {
@@ -310,5 +315,213 @@ fileAll.addEventListener("change", () => {
   });
 });
 mirrorTool.onports(() => { if (!busy) update(); });
+TOOLS.hooks.push(update);
 render();
+}
+
+// --- install: begin (fam/tests/install_page_test.mjs runs this part in Node, after OTA)
+// A release of this firmware from GitHub, or a package file, written to the FM-1 with the installer's own update protocol
+// (OTA: web/fm1ota.js, fm1pkg.js). A browser cannot download the file attached to a release (GitHub sends no CORS headers
+// for it), so the page reads the list of releases from the API and downloads the copy of that file kept in the repository
+// (fam/releases/NAME.fwsc, through the contents API), which must have the SHA-256 the release shows for its file.
+const INST = (() => {
+  const REPO = "davidamomusic/fm-fam", DIR = "fam/releases", LISTED = 8;
+  const API = `https://api.github.com/repos/${REPO}`;
+  const err = (message, code) => Object.assign(new Error(message), { code });
+
+  // the API's releases -> [{tag, title, date, pre, asset, size, sha}], newest first as GitHub lists them: no drafts, the
+  // first .fwsc of each (a name safe in a URL), its SHA-256 when GitHub gives one
+  function releases(json) {
+    if (!Array.isArray(json)) throw err("GitHub's answer was not a list of releases.", "github");
+    const out = [];
+    for (const r of json) {
+      if (!r || r.draft) continue;
+      const a = (r.assets || []).find((x) => x && /^[A-Za-z0-9._-]+\.fwsc$/.test(x.name || ""));
+      if (!a) continue;
+      const m = /^sha256:([0-9a-f]{64})$/.exec(a.digest || "");
+      out.push({ tag: String(r.tag_name || ""), title: String(r.name || r.tag_name || ""), date: r.published_at || "", pre: !!r.prerelease,
+                 asset: a.name, size: Number(a.size) || 0, sha: m ? m[1] : "" });
+      if (out.length >= LISTED) break;
+    }
+    return out;
+  }
+
+  // the bytes of a package -> {product, image, sha}, or an Error with a code (sha, badpkg): a file that is not an FM-1
+  // package with an update loader of Felucca's, a damaged one, or, with want, one whose SHA-256 is another
+  async function prepare(raw, want) {
+    const sha = await OTA.sha256hex(raw);
+    if (want && sha !== want)
+      throw err(`That copy is not the file attached to the release (its SHA-256 differs). Nothing was written. Download the release's file from GitHub and use "Install a file".`, "sha");
+    let product;
+    try { product = OTA.productOf(raw); } catch (_) { throw err("This is not an FM-1 package.", "badpkg"); }
+    if (!/^FM-1_\d+$/.test(product)) throw err(`This is not an FM-1 package (it says ${JSON.stringify(product)}).`, "badpkg");
+    const image = OTA.logicalImage(raw);
+    try { OTA.checkUfw(image); } catch (e) { throw err(`${e.message}. Nothing was written.`, "badpkg"); }
+    if (!OTA.hasLoader(image)) throw err("This package has no update loader of Felucca's, so this page does not write it. Use the updater it came with.", "badpkg");
+    return { product, image, sha };
+  }
+
+  // the bar: Updater's steps -> its value 0..100, or null to leave it (the installer page's measure: the bytes the device
+  // reads for this package, the check of the whole package first, then the write; held at 99 until the FM-1 is back)
+  function barOf(image) {
+    const ent = OTA.ufwEntries(image), fl = ent[0], ldr = ent[100];
+    const CHECK = 0x400 + 0x400 + (ldr ? ldr.len - 0x20 : 0);
+    const WRITE = fl && fl.len > 0x4000 && fl.len <= 0x100000 ? 0x400 + 0x20 + fl.len + (fl.len - 0x4000) : image.length;
+    const total = CHECK + WRITE;
+    return (k, a, b, pct) => {
+      if (k === "verify") return (Math.min(b, CHECK) / total) * 100;
+      if (k === "write") return Math.min(99, ((CHECK + (pct == null ? b : (pct / 100) * WRITE)) / total) * 100);
+      if (k === "done") return 100;
+      return null;
+    };
+  }
+
+  const when = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); };
+  const kb = (n) => `${Math.round(n / 1024)} kB`;
+  return { API, DIR, releases, prepare, barOf, when, kb, err };
+})();
+// --- install: end
+
+{
+const $ = (i) => document.getElementById(i);
+const checkBtn = $("inCheck"), fileBtn = $("inFile"), statusEl = $("inStatus"), bar = $("inBar"), list = $("inList"), input = $("inFileInput");
+const askBox = $("inAsk"), askText = $("inAskText"), askYes = $("inAskYes"), askNo = $("inAskNo");
+const NOT_YET = "Connect to the FM-1 above first.", READY = "Check GitHub for the versions, or choose a package file.";
+let shown = [];
+
+function say(text, kind = "") {
+  statusEl.textContent = text;
+  statusEl.className = "msg" + (kind ? " " + kind : "");
+}
+function progress(v) {                                           // false: none, null: busy without a figure, 0..100
+  bar.hidden = v === false;
+  if (typeof v === "number") bar.value = v; else bar.removeAttribute("value");
+}
+function update() {
+  const connected = !!mirrorTool.access, off = TOOLS.on;
+  checkBtn.disabled = off;
+  fileBtn.disabled = off || !connected;
+  list.querySelectorAll("button").forEach((b) => { b.disabled = off || !connected; });
+  if (off) return;
+  if (!connected && statusEl.textContent === READY) say(NOT_YET);
+  else if (connected && statusEl.textContent === NOT_YET) say(READY);
+}
+function confirmAsk(text) {
+  return new Promise((resolve) => {
+    askText.textContent = text;
+    askBox.hidden = false;
+    askYes.focus();
+    const done = (v) => { askBox.hidden = true; askYes.onclick = askNo.onclick = null; resolve(v); };
+    askYes.onclick = () => done(true);
+    askNo.onclick = () => done(false);
+  });
+}
+async function exclusive(fn) {
+  if (TOOLS.on) return;
+  TOOLS.set(true);
+  try { await fn(); }
+  catch (e) { say(e.message || String(e), "err"); }
+  finally { progress(false); TOOLS.set(false); }
+}
+async function github(path, accept) {
+  let r;
+  try { r = await fetch(`${INST.API}/${path}`, { headers: { Accept: accept } }); }
+  catch (_) { throw INST.err(`Could not reach GitHub. Check the connection, or download the package from the release page and use "Install a file".`, "net"); }
+  if (r.status === 403 || r.status === 429) throw INST.err(`GitHub is limiting requests from this network right now. Try again later, or choose a package file.`, "limit");
+  return r;
+}
+
+function renderList() {
+  list.replaceChildren();
+  shown.forEach((rel, i) => {
+    const li = document.createElement("li");
+    const chips = (i === 0 ? `<span class="chip now">Latest</span>` : "") + (rel.pre ? `<span class="chip">Pre-release</span>` : "");
+    li.innerHTML = `<span class="slot"></span><span class="meta"></span>${chips}<button type="button" data-i="${i}"></button>`;
+    li.querySelector(".slot").textContent = rel.tag;
+    li.querySelector(".meta").textContent = [rel.title, INST.when(rel.date), INST.kb(rel.size)].filter(Boolean).join(" · ");
+    const b = li.querySelector("button");
+    b.textContent = "Install";
+    b.setAttribute("aria-label", `Install ${rel.title || rel.tag}`);
+    list.appendChild(li);
+  });
+  update();
+}
+
+// the package is on its way to the FM-1: the mirror lets go of the ports (it drops them and picks them afresh after, the FM-1
+// restarts twice), the Updater of fm1ota.js does the rest, and a device already in update mode is finished
+async function install(pkg) {
+  const access = mirrorTool.access;
+  if (!access) throw INST.err(NOT_YET, "noport");
+  const up = new OTA.Updater(access, () => {});
+  const here = mirrorTool.ports();
+  if (here) up.allow(here.input.name);
+  const value = INST.barOf(pkg.image);
+  const words = { start: "Starting the update. Do not unplug the FM-1.", loader: "Switching to update mode…", reboot: "Restarting…" };
+  const step = (k, a, b, pct) => {
+    const v = value(k, a, b, pct);
+    if (v !== null) { progress(v); if (k === "verify") say(`Checking the package… ${Math.round(v)}%`, "wait"); if (k === "write") say(`Writing… ${Math.round(v)}%`, "wait"); }
+    else if (words[k]) say(words[k], "wait");
+  };
+  say("Looking for the FM-1…", "wait");
+  progress(null);
+  mirrorTool.suspend();
+  let now = "";
+  try {
+    const loader = await up.find((id) => /^ota-/i.test(id.model));
+    if (loader) {
+      loader.link.close();
+      if (!(await up.resume(pkg.image, step, pkg.product))) throw INST.err("The update did not finish. Replug the USB cable and install again: it carries on where it stopped.", "stopped");
+      now = pkg.product;
+    } else now = await up.install(pkg.image, pkg.product, step, pkg.sha);
+  } finally { mirrorTool.resume(); }
+  progress(100);
+  say(`Done: the FM-1 now runs ${now}. Its screen comes back in a moment.`);
+}
+const ASK = (what) => `Install ${what} on the FM-1? The sound and the screen stop for about a minute while it writes: do not unplug the USB cable or switch the FM-1 off meanwhile. ` +
+  `What {{NAME}} has saved is not touched.`;
+
+checkBtn.addEventListener("click", () => exclusive(async () => {
+  say("Asking GitHub for the versions…", "wait");
+  progress(null);
+  const r = await github("releases?per_page=12", "application/vnd.github+json");
+  if (!r.ok) throw INST.err(`GitHub answered ${r.status}.`, "github");
+  shown = INST.releases(await r.json());
+  renderList();
+  say(shown.length ? `${shown.length} version${shown.length > 1 ? "s" : ""} on GitHub. Pick one to install.` : "GitHub has no release with a package yet.");
+}));
+list.addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  const rel = b && !b.disabled ? shown[Number(b.dataset.i)] : null;
+  if (!rel) return;
+  exclusive(async () => {
+    if (!mirrorTool.access) throw INST.err(NOT_YET, "noport");
+    if (!rel.sha) throw INST.err(`GitHub gave no checksum for this release, so its copy cannot be checked. Download the file from the release page and use "Install a file".`, "sha");
+    say(`Downloading ${rel.asset}…`, "wait");
+    progress(null);
+    const r = await github(`contents/${INST.DIR}/${rel.asset}`, "application/vnd.github.raw+json");
+    if (r.status === 404) throw INST.err(`The repository has no copy of ${rel.asset} yet. Download it from the release page and use "Install a file".`, "nocopy");
+    if (!r.ok) throw INST.err(`GitHub answered ${r.status}.`, "github");
+    const pkg = await INST.prepare(new Uint8Array(await r.arrayBuffer()), rel.sha);
+    progress(false);
+    say(`${rel.asset} is ready (SHA-256 ${pkg.sha.slice(0, 12)}…, the release's own).`);
+    if (!(await confirmAsk(ASK(rel.title || rel.tag)))) { say("Cancelled. Nothing was written."); return; }
+    await install(pkg);
+  });
+});
+fileBtn.addEventListener("click", () => { input.value = ""; input.click(); });
+input.addEventListener("change", () => {
+  const f = input.files && input.files[0];
+  if (!f) return;
+  exclusive(async () => {
+    if (!mirrorTool.access) throw INST.err(NOT_YET, "noport");
+    const pkg = await INST.prepare(new Uint8Array(await f.arrayBuffer()), "");
+    say(`${f.name} is an FM-1 package (${pkg.product}, SHA-256 ${pkg.sha.slice(0, 12)}…).`);
+    if (!(await confirmAsk(ASK(`"${f.name}"`)))) { say("Cancelled. Nothing was written."); return; }
+    await install(pkg);
+  });
+});
+mirrorTool.onports(update);
+TOOLS.hooks.push(update);
+say(NOT_YET);
+update();
 }

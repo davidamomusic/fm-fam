@@ -12,3 +12,13 @@ id="FM-1_111"
 echo "identity $id"
 FM1B_ID="$id" python3 tools/build.py fam
 echo "package fam/build/fm-fam.fwsc ($id)"
+# the screen mirror page installs a release from the copy kept here (a browser cannot download the release's own file); the
+# name is the one of the file attached to the release. A copy already there is left as it is: it is the release's.
+ver=$(sed -n 's/^#define APP_VERSION "\(.*\)"/\1/p' fam/app.h)
+mkdir -p fam/releases
+if [ -e "fam/releases/fm-fam-$ver.fwsc" ]; then
+    echo "fam/releases/fm-fam-$ver.fwsc is there already (left as it is)"
+else
+    cp fam/build/fm-fam.fwsc "fam/releases/fm-fam-$ver.fwsc"
+    echo "copy fam/releases/fm-fam-$ver.fwsc (commit it, and attach the same file to the release)"
+fi

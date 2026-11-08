@@ -18,6 +18,10 @@ Everything on the screen is in English. The manual is built into the firmware (H
 Install the `.fwsc` package of a release with any FM-1 firmware installer: The Firmware Hub, M-UPGRADE, or
 `tools/fm1_install.py` from fm1-base. To leave FM-FAM, install another firmware's package the same way.
 
+M-UPGRADE refuses a package whose identity is the one already on the FM-1 ("The selected firmware matches the current device
+version"), and every FM-FAM release has the same identity. To update FM-FAM over FM-FAM use `tools/fm1_install.py` (it compares only
+the model), the Install a version section of the screen mirror page (below), or install another firmware first.
+
 ## Build
 
 FM-FAM lives in `fam/` of a copy of fm1-base at commit `b5cf814`, with its submodule `bsp` (felucca-bsp) at
@@ -59,6 +63,15 @@ A backup file is fm1-base's (`tools/fm1_backup.py` reads and writes the same fil
 four parts. The page and its protocol are tested by `node fam/tests/projects_page_test.mjs` (files, slots, a project into another slot,
 a simulated FM-1) and `node fam/tests/projects_browser_test.mjs` (the page in headless Chromium on a fake Web MIDI; skipped without
 playwright-core and a Chromium); the app's side by `fam/tests/v020a.txt`.
+
+Install a version (0.20): the same page installs a release from GitHub, or a package file, with the installer's own update code
+(`web/fm1ota.js` and `fm1pkg.js`, put into the page by `ota_js()` in `tools/make_site.py`); it does not compare identities. A browser
+cannot download the file attached to a release (GitHub sends no CORS headers for it), so the page reads the list of releases from the
+API and takes the copy of the package kept in `fam/releases/` (the contents API), and writes it only if its SHA-256 is the one GitHub
+shows for the release's own file. For every release the package goes into `fam/releases/` under the name of the file attached to the
+release (`fam/release.sh` puts it there), in a commit before or after the release. The page is tested by
+`node fam/tests/install_page_test.mjs` (the list of releases, the packages kept, what is refused, the bar) and
+`node fam/tests/install_browser_test.mjs` (headless Chromium, with GitHub and the update protocol simulated).
 
 ## Identity and package
 

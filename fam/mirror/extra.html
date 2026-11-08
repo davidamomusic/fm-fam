@@ -20,6 +20,9 @@
 .projects .msg { margin: .3rem 0; color: var(--ink); }
 .projects .msg.err { color: var(--accent-ink); font-weight: 600; }
 .projects .msg.wait { font-weight: 600; }
+.projects .chip { font-size: .8rem; padding: .05em .55em; border: 1px solid var(--rule); border-radius: 99px; color: var(--muted); }
+.projects .chip.now { border-color: var(--teal); color: var(--ink); }
+.projects .meta { flex: 1 1 14rem; min-width: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
 .projects input[type="file"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); }
 </style>
 <section class="projects" id="projects" aria-labelledby="projectsH">
@@ -52,4 +55,28 @@
     everything {{NAME}} has saved, and the FM-1 asks you to confirm with <b>SEL</b> first. A cut cable or a damaged file changes nothing.</p>
   <input type="file" id="pjFileProject" accept=".fampj" tabindex="-1" aria-hidden="true">
   <input type="file" id="pjFileAll" accept=".{{EXT}}" tabindex="-1" aria-hidden="true">
+</section>
+<section class="projects" id="install" aria-labelledby="installH">
+  <h2 id="installH">Install a version</h2>
+  <p>Put a {{NAME}} release from GitHub on the FM-1 over USB, or a package file (.fwsc) you downloaded. It takes about a minute, and the
+    sound and the screen stop while it writes. The update only rewrites the firmware: what {{NAME}} has saved is not touched,
+    but save everything first (above) if it matters.</p>
+  <div class="row">
+    <button id="inCheck" class="primary" type="button">Check GitHub for versions</button>
+    <button id="inFile" type="button" disabled>Install a file&hellip;</button>
+    <span class="msg" id="inStatus" role="status" aria-live="polite">Connect to the FM-1 above first.</span>
+  </div>
+  <progress id="inBar" max="100" hidden aria-label="Update progress"></progress>
+  <div class="ask" id="inAsk" role="group" aria-labelledby="inAskText" hidden>
+    <p id="inAskText"></p>
+    <div class="row">
+      <button id="inAskYes" class="primary" type="button">Install</button>
+      <button id="inAskNo" type="button">Cancel</button>
+    </div>
+  </div>
+  <ol id="inList" aria-label="Versions on GitHub"></ol>
+  <p>The version the FM-1 runs shows on its HOME help pages. An older version installs too, but it may not read patterns saved
+    by a newer one. M-UPGRADE refuses a package whose identity is the one already on the FM-1, and every {{NAME}} has the
+    same one: this page does not compare them, so it can update {{NAME}} where M-UPGRADE cannot.</p>
+  <input type="file" id="inFileInput" accept=".fwsc" tabindex="-1" aria-hidden="true">
 </section>

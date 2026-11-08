@@ -13,7 +13,7 @@
   words/                      the screen reader's words files (APP_DIR/web/words), every one ever made
   mirror/index.html           the screen mirror (web/mirror/index.html, with fm1ports.js inlined), with mirror = true; the
                               firmware's own part of it, if it has one: APP_DIR/mirror/extra.html (under the panel) and
-                              extra.js (script; {{BACKUP_PROTOCOL}}, {{OBJ_XXX}}, {{APP_VERSION}}; see mirror_extras)
+                              extra.js (script; {{BACKUP_PROTOCOL}}, {{OTA_JS}}, {{OBJ_XXX}}, {{APP_VERSION}}; see mirror_extras)
   backup/index.html           backup and restore in the browser (web/backup/index.html, with fm1ports.js inlined), with
                               backup = true: its magic and version from APP_DIR/app.h (APP_BACKUP_MAGIC, APP_BACKUP_VERSION)
   firmware/NAME-VERSION.fwsc  the package the installer writes; also the download
@@ -64,6 +64,15 @@ def ports_js():
 def panel_js():
     """web/fm1panel.js (the panel's drawing and lights) as plain script, for a page's {{PANEL_JS}}"""
     return strip_module((SRC / "web" / "fm1panel.js").read_text(encoding="utf-8"))
+
+
+def ota_js():
+    """web/fm1pkg.js and web/fm1ota.js (the update protocol) as plain script in a function of their own, for a firmware's
+    mirror extra.js ({{OTA_JS}}): const OTA = {Updater, productOf, logicalImage, checkUfw, ufwEntries, sha256hex, hasLoader}.
+    Their other names stay out of the page's; the names of fm1ports.js (ports_js(), the page's own) are the page's"""
+    body = "\n".join(strip_module((SRC / "web" / f).read_text(encoding="utf-8")) for f in ("fm1pkg.js", "fm1ota.js"))
+    return ("const OTA = (() => {\n" + body +
+            "\nreturn { Updater, productOf, logicalImage, checkUfw, ufwEntries, sha256hex, hasLoader };\n})();\n")
 
 
 def fill(html, values, what):
@@ -121,11 +130,15 @@ def app_define(app, name):
 def mirror_extras(app, conf):
     """the firmware's own part of its mirror page: APP/mirror/extra.html (under the panel) and extra.js (script), if it has
     them. In them: {{BACKUP_PROTOCOL}} (the backup protocol, with backup = true), {{OBJ_XXX}} (the number of app.h's OBJ_XXX),
-    {{APP_VERSION}}, the backup page's values ({{NAME}}, {{MAGIC}}, {{BACKUP_VERSION}}, {{EXT}}, {{HOLDS}})"""
+    {{APP_VERSION}}, {{OTA_JS}} (the update protocol, ota_js()), the backup page's values ({{NAME}}, {{MAGIC}}, {{BACKUP_VERSION}},
+    {{EXT}}, {{HOLDS}})"""
     d = Path(app) / "mirror"
     if not (d / "extra.html").exists() and not (d / "extra.js").exists():
         return {"EXTRA_HTML": "", "EXTRA_JS": ""}
     values = {"NAME": conf.get("name", Path(app).name), "APP_VERSION": app_define(app, "APP_VERSION")}
+    js = d / "extra.js"
+    if js.exists() and "{{OTA_JS}}" in js.read_text(encoding="utf-8"):
+        values["OTA_JS"] = ota_js()
     enum = None
     if conf.get("backup"):
         values.update({k: v for k, v in backup_values(app, conf).items() if k in ("MAGIC", "BACKUP_VERSION", "EXT", "HOLDS")})
