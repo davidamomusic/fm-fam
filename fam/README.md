@@ -16,8 +16,7 @@ Everything on the screen is in English. The manual is built into the firmware (H
 ## Install
 
 Install the `.fwsc` package of a release with any FM-1 firmware installer: The Firmware Hub, M-UPGRADE, or
-`tools/fm1_install.py` from fm1-base (a package that carries M-VAVE's update loader needs `--force` there).
-To leave FM-FAM, install another firmware's package the same way.
+`tools/fm1_install.py` from fm1-base. To leave FM-FAM, install another firmware's package the same way.
 
 ## Build
 
@@ -51,10 +50,9 @@ Every script in `fam/tests` is a test (keys, knobs, screens, saving across a reb
 The identity is `FM-1_8` plus the minor version as two digits (`FM-1_819` for 0.19); `fam/release.sh` works it
 out from `APP_VERSION` in `fam/app.h`. The same text is in the package and in the firmware.
 
-`fam/release.sh` writes a package with fm1-base's own update loader (felucca-bsp's). The release assets are that
-firmware repackaged with M-VAVE's own update loader (the `ota.bin` of M-VAVE's FM-1 package), in the package
-layout of the FM1 Open V14 kit (`wrap()` in its `tools/build_linux.py`, GPL-3.0 with a linking exception). That
-repackaging step is not in this repository.
+`fam/release.sh` writes `fam/build/fm-fam.fwsc`, the package of a release: the firmware and fm1-base's own update
+loader (felucca-bsp's, built from source in `bsp/loader`). With the same toolchain, a release asset is what this
+repository builds at its tag.
 
 ## Licence
 
