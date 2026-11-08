@@ -1,0 +1,109 @@
+# FM-FAM v0.8: the kick sequencer, the FX pages, the tempo buttons, REC and the random pages
+wait 500
+expect mode 0
+expect klen 16
+expect fxen 38
+expect bpm 118
+tap ARP
+expect mode 3
+expect page 0
+# the kick's own sequence, the first page: a held step takes its pitch (K2) and its volume (K3)
+key w5 down
+wait 60
+spin K2 2
+spin K3 -3
+key w5 up
+wait 60
+expect kpit5 2
+expect kvol5 121
+expect ksel 5
+# the second page: its condition (K1) and its ratchet (K2)
+spin SELECT 1
+key w5 down
+wait 60
+spin K1 2
+spin K2 2
+key w5 up
+wait 60
+expect kcond5 2
+expect krat5 2
+expect ksel 5
+spin SELECT -1
+# a tap toggles a kick step; K4 is the length
+tapkey w6
+wait 60
+expect ktrig6 1
+spin K4 -3
+expect klen 13
+spin K4 3
+expect klen 16
+# FX pages: each effect has its own page; the keys switch them
+tap FX
+expect mode 4
+expect page 0
+tapkey w0
+wait 60
+expect fxen 39
+tapkey w1
+wait 60
+expect fxen 37
+tapkey w4
+wait 60
+expect fxen 53
+spin SELECT 6
+expect page 6
+# the mixer: keys 1-4 are delay, reverb, DJ filter, stutter
+tapkey w0
+wait 60
+expect fxen 55
+tapkey w1
+wait 60
+expect fxen 51
+tapkey w2
+wait 60
+expect fxen 35
+tapkey w0
+tapkey w1
+tapkey w2
+wait 60
+expect fxen 53
+# stutter: a tap latches, a long press is momentary
+tapkey w3
+wait 100
+expect fxen 61
+tapkey w3
+wait 100
+expect fxen 53
+key w3 down
+wait 600
+expect fxen 61
+key w3 up
+wait 200
+expect fxen 53
+shot v8_fxmix.png
+# REC alone opens the random page of the page we are on; again: back
+tap SEQ
+tap REC
+wait 80
+expect mode 6
+expect page 0
+tap REC
+wait 80
+expect mode 0
+tap EDIT
+spin SELECT 1
+tap REC
+wait 80
+expect mode 6
+expect page 3
+shot v8_rand.png
+# keys 1-4 are the knob switches, 5 all, the knobs the amount
+tapkey w0
+wait 60
+tapkey w0
+wait 60
+spin K1 10
+wait 60
+tap REC
+wait 80
+expect mode 1

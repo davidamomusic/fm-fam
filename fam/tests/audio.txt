@@ -1,0 +1,64 @@
+# FM-FAM v0.8: every synth preset (16), then every FX preset (10) with all the effects on; audio.wav, checked offline
+wait 300
+peakreset
+tap EDIT
+wav audio.wav
+tap PLAY
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+tap FX
+tapkey w0
+tapkey w3
+wait 60
+tapkey w4
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+turn PRESET 1
+wait 2100
+wavstop
+tap PLAY
+expect peak_db_max 0

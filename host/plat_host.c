@@ -864,6 +864,21 @@ int plat_bta_lost(void)
 }
 int plat_bta_timed_out(void) { return 0; }
 int32_t plat_bta_latency_us(void) { return bth_st == PLAT_BTA_STREAMING ? 20000 : -1; }   /* (a queue's worth) */
+static uint32_t bth_slots = 5;                       /* (`bta slots N`: what the device lets the FM-1 send, 1, 3 or 5 slots) */
+int plat_bta_link(uint32_t v[7])                  /* (a link that behaves) */
+{
+    if (bth_st != PLAT_BTA_STREAMING)
+        return 0;
+    v[0] = 118, v[1] = 4, v[2] = 0, v[3] = 2, v[4] = bth_slots, v[5] = 0, v[6] = bth_slots == 1u ? 14u : bth_slots == 3u ? 35u : 46u;
+    return 1;
+}
+static int bth_quality;
+int plat_bta_quality(int tier)
+{
+    if (tier >= 0 && tier < 3)
+        bth_quality = tier;
+    return bth_quality;
+}
 static int bta_script(const char *what, const char *name, int lineno)   /* "bta add NAME", "bta drop NAME" -> 1 bad */
 {
     uint32_t i;
@@ -884,7 +899,11 @@ static int bta_script(const char *what, const char *name, int lineno)   /* "bta 
         }
         return 0;
     }
-    printf("line %d: bta %s %s: add or drop NAME\n", lineno, what, name);
+    if (!strcmp(what, "slots") && (name[0] == '1' || name[0] == '3' || name[0] == '5') && !name[1]) {
+        bth_slots = (uint32_t)(name[0] - '0');
+        return 0;
+    }
+    printf("line %d: bta %s %s: add or drop NAME, or slots 1|3|5\n", lineno, what, name);
     return 1;
 }
 #endif

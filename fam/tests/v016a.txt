@@ -1,0 +1,25 @@
+# FM-FAM v0.16: the BLUETOOTH page shows what the air is doing while the sound goes out by Bluetooth (receptions, losses, slots)
+wait 500
+tap GLO
+spin SELECT 4
+spin K1 1
+expect bton 1
+bta add BUDS
+spin K4 1
+wait 1300
+expect btn 1
+spin K3 1
+spin K4 1
+wait 700
+expect btstate 7
+wait 1200
+shot v16_bt_link.png
+# the readout is only for the sound going out by Bluetooth: back on the FM-1's output it says where the sound is
+spin K3 3
+expect btact 4
+spin K4 1
+wait 300
+shot v16_bt_wired.png
+spin K4 1
+wait 300
+expect btstate 7

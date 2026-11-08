@@ -1,0 +1,141 @@
+# FM-FAM v0.8: every mode and page, for the screenshot sheet (build/host/s_*.png)
+wait 600
+tap PLAY
+wait 300
+tap SEQ
+wait 80
+shot s_seq1.png
+spin SELECT 1
+wait 80
+shot s_seq2.png
+spin SELECT -2
+wait 60
+tap EDIT
+wait 80
+shot s_syn1.png
+spin SELECT 1
+wait 80
+shot s_syn2.png
+spin SELECT 1
+wait 80
+shot s_syn3.png
+spin SELECT 1
+wait 80
+shot s_syn4.png
+spin SELECT 1
+wait 80
+shot s_syn5.png
+spin SELECT 1
+wait 80
+shot s_syn6.png
+spin SELECT -6
+wait 60
+tap LFO
+wait 80
+shot s_patch1.png
+spin SELECT -1
+wait 60
+tap ARP
+wait 80
+shot s_kick1.png
+spin SELECT 1
+wait 80
+shot s_kick2.png
+spin SELECT 1
+wait 80
+shot s_kick3.png
+spin SELECT 1
+wait 80
+shot s_kick4.png
+spin SELECT 1
+wait 80
+shot s_kick5.png
+spin SELECT -5
+wait 60
+tap FX
+wait 80
+shot s_fx1.png
+spin SELECT 1
+wait 80
+shot s_fx2.png
+spin SELECT 1
+wait 80
+shot s_fx3.png
+spin SELECT 1
+wait 80
+shot s_fx4.png
+spin SELECT 1
+wait 80
+shot s_fx5.png
+spin SELECT 1
+wait 80
+shot s_fx6.png
+spin SELECT 1
+wait 80
+shot s_fx7.png
+spin SELECT -7
+wait 60
+tap GLO
+wait 80
+shot s_patt1.png
+spin SELECT -1
+wait 60
+spin SELECT 1
+wait 60
+shot s_patt2.png
+spin SELECT 1
+wait 60
+shot s_patt3.png
+spin SELECT 1
+wait 60
+shot s_patt4.png
+tap SEL
+wait 80
+shot s_scale1.png
+spin SELECT 1
+wait 80
+shot s_scale2.png
+spin SELECT -2
+wait 60
+tap HOME
+wait 80
+shot s_home1.png
+spin SELECT 1
+wait 80
+shot s_home2.png
+spin SELECT 1
+wait 80
+shot s_home3.png
+spin SELECT 1
+wait 80
+shot s_home4.png
+spin SELECT 1
+wait 80
+shot s_home5.png
+spin SELECT 1
+wait 80
+shot s_home6.png
+spin SELECT 1
+wait 80
+shot s_home7.png
+spin SELECT 1
+wait 80
+shot s_home8.png
+spin SELECT 1
+wait 80
+shot s_home9.png
+spin SELECT 1
+wait 80
+shot s_home10.png
+spin SELECT -10
+wait 60
+tap EDIT
+spin SELECT 1
+tap REC
+wait 80
+expect mode 6
+expect page 3
+shot s_rand_syn2.png
+tap REC
+wait 60
+expect mode 1

@@ -1626,6 +1626,10 @@ def main():
         VERSION = a.release.upper()
         RELEASE = a.release
         name = f"{STEM}-{a.release}.fwsc"
+    if os.environ.get("FM1B_ID"):             # an identity of its own, e.g. FM-1_811 (M-UPGRADE 3.11 reads NAME_ and 1-3 digits)
+        if not re.fullmatch(r"FM-1_\d{1,16}", os.environ["FM1B_ID"]):
+            raise SystemExit("FM1B_ID: FM-1_ and digits only")
+        PRODUCT = os.environ["FM1B_ID"]       # the package marker and the firmware's FELUCCA_ID stay the same string
     # a release package needs firmware.json's keys; the simulator, the emulator, the .rfm1 and dev builds only warn
     firmware_json.require(CONF, bool(a.release) and not (a.host or a.web or a.rfm1), APP / "fm1.toml", APP)
     touch = any(re.search(r"^#define APP_TOUCH\b", f.read_text(errors="ignore"), re.M) for f in APP.glob("*.h"))

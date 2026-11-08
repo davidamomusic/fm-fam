@@ -1,0 +1,17 @@
+# FM-FAM v0.12: the mirror over a slow link: what was dropped is drawn again (app_redraw)
+wait 500
+mirror_rate 4
+mirror out:fam_mirror_slow.syx
+wait 400
+tap SEQ
+wait 100
+spin K4 3
+wait 100
+tap FX
+wait 100
+tap SEQ
+wait 3000
+shot v12_mirror_slow_ref.png
+wait 1500
+mirror off
+wait 100

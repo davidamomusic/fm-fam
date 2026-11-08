@@ -318,7 +318,33 @@ static uint8_t ba_sbc_init_done;
  * BA_BITPOOL (bt_sbc_frame_len: 4 + 8 + ceil((8 + 16 x bitpool) / 8)); a lower agreed bitpool, or plain stereo, is shorter */
 _Static_assert(4u + 12u + 1u + BA_MFRAMES * (12u + (8u + 16u * BA_BITPOOL + 7u) / 8u) == BP_MQB && BP_MQB <= BP_TXB,
                "bt_page.c BP_MQB: the longest audio packet");
-static uint8_t ba_mbuf[BA_MFRAMES * 128u];
+/* the quality tiers (plat_bta_quality: an app's switch): fewer bits a frame, so more frames in the DH5 and fewer packets a
+ * second, less of the air for the audio: 0 = the above (3 x bitpool 46, 289 kbit/s, 115 DH5 a second), 1 = 4 x bitpool 32
+ * (212 kbit/s, 86 DH5), 2 = 5 x bitpool 25 (174 kbit/s, 69 DH5). Each fits the queue's slot (the asserts) */
+#define BA_NTIER 3u
+#define BA_FR_MAX 6u                               /* (the longest run of frames in a packet: the DH1 mode's six) */
+static const uint8_t BA_TIER_BP[BA_NTIER] = {BA_BITPOOL, 32u, 25u};
+static const uint8_t BA_TIER_FR[BA_NTIER] = {BA_MFRAMES, 4u, 5u};
+_Static_assert(4u + 12u + 1u + 4u * (12u + (8u + 16u * 32u + 7u) / 8u) <= BP_MQB, "bt_acl.c tier 1: 4 frames of bitpool 32 in a slot");
+_Static_assert(4u + 12u + 1u + 5u * (12u + (8u + 16u * 25u + 7u) / 8u) <= BP_MQB, "bt_acl.c tier 2: 5 frames of bitpool 25 in a slot");
+static uint8_t ba_tier_set, ba_tier_applied = 0xFFu, ba_mfr = BA_MFRAMES;   /* the tier asked for, the tier in force, frames a packet */
+static uint16_t ba_lim_applied = BP_MQB;           /* the longest piece the link takes now: a DH5 (the queue's slot), a DH3 (183 B), or a DH1 (27 B) */
+static uint8_t ba_bpv;                             /* the bitpool the encoder runs at (plat_bta_link shows it) */
+/* a DH5 only while the link has granted 5 slots and the device lets us use them (its LMP_max_slot); else a DH3, two frames of
+ * a bitpool of 35 at most (2 x 83 + 17 = 183 B: the same 43 % of the air as the DH5 tiers, in shorter packets); and when the
+ * device lets us ONE slot (the Galaxy Buds Pro, 2026-11-07: a 3-slot packet is no better than a 5-slot one to them) the same
+ * 6-frame packet sent by bt_page.c in DH1 pieces of 27 B, at a bitpool of 14 / 12 / 10 (the quality's three): 113 / 102 /
+ * 91 kbit/s, 72 / 65 / 57 % of the slots (a DH1 is 27 B in 2 slots, 172 kbit/s of the air at the very most) */
+static uint16_t ba_lim_now(void)
+{
+    if (bp.peer_slots == 1u)
+        return 27u;
+    return (bp.slots5 == 2u && (bp.peer_slots == 0u || bp.peer_slots >= 5u)) ? (uint16_t)BP_MQB : 183u;
+}
+#define BA_DH1_FR 6u
+static const uint8_t BA_DH1_BP[BA_NTIER] = {14u, 12u, 10u};
+_Static_assert(4u + 12u + 1u + BA_DH1_FR * (12u + (8u + 16u * 14u + 7u) / 8u) <= BP_MQB, "bt_acl.c DH1 tier: 6 frames of bitpool 14 in a slot");
+static uint8_t ba_mbuf[BA_FR_MAX * 128u];
 static uint32_t ba_mlen, ba_mn;
 static uint8_t ba_live;                            /* bt_audio_feed streams (the audio ISR's) */
 static uint32_t ba_qavg;                           /* the audio packets queued (bt_page.c bp_mq), mean over ~0.7 s, Q8 */
@@ -329,16 +355,16 @@ static uint32_t ba_qavg;                           /* the audio packets queued (
  * device's own buffer is not known here (no AVDTP delay report): GLOBAL > MIDI BT OFS is for it */
 static int32_t bta_lat_t(void)
 {
-    uint32_t pk = (bp.slots5 == 2u ? BA_MFRAMES : 1u) * BT_SBC_SAMPLES_PER_FRAME;
+    uint32_t pk = (uint32_t)ba_mfr * BT_SBC_SAMPLES_PER_FRAME;
     int32_t smp = (int32_t)(pk / 2u + ((ba_qavg * pk) >> 8)) - HALF_FRAMES;
     return ba_live ? (int32_t)(((int64_t)smp * SY_TPS_Q8) >> 8) : -1;
 }
 static void ba_media_send(const uint8_t *sbc_frame, uint32_t sbc_len, uint32_t frames)   /* one L2CAP frame, whole */
 {
-    uint8_t pkt[4 + 12 + 1 + BA_MFRAMES * 128u];
+    uint8_t pkt[BP_MQB];
     uint32_t payload_len = 12u + 1u + sbc_len;
     uint32_t i;
-    if (ba.stage != BA_AV_READY || !ba.ch[BA_CH_MEDIA].dcid || sbc_len > BA_MFRAMES * 128u)
+    if (ba.stage != BA_AV_READY || !ba.ch[BA_CH_MEDIA].dcid || 4u + 12u + 1u + sbc_len > BP_MQB)
         return;
     pkt[0] = (uint8_t)(payload_len & 0xFFu);
     pkt[1] = (uint8_t)(payload_len >> 8);
@@ -379,9 +405,26 @@ int bt_audio_feed(const int32_t *q15_pcm, uint32_t n)   /* 1: it streams (audio.
         ba_qavg = (bp_mq.w - bp_mq.r) << 8;        /* (the mean from the depth now) */
     ba_live = 1;
     ba_qavg += ((int32_t)((bp_mq.w - bp_mq.r) << 8) - (int32_t)ba_qavg) >> 9;
+    if (ba_tier_applied != ba_tier_set || ba_lim_applied != ba_lim_now()) {   /* (a new tier, or the device cut the slots: from the
+                                                    * start of a packet, the encoder made again) */
+        ba_tier_applied = ba_tier_set;
+        ba_lim_applied = ba_lim_now();
+        ba_mlen = ba_mn = ba_pcm_cnt = 0;
+        ba_sbc_init_done = 0;
+    }
     if (!ba_sbc_init_done) {
-        uint8_t bp_max = ba.conf[3] < BA_BITPOOL ? ba.conf[3] : (uint8_t)BA_BITPOOL;   /* (the agreed range) */
-        bt_sbc_init(&ba_sbc, 44100, bp_max < ba.conf[2] ? ba.conf[2] : bp_max, 1);
+        uint8_t dh1 = ba_lim_applied < 183u;
+        uint8_t want = dh1 ? BA_DH1_BP[ba_tier_applied] :
+                       BA_TIER_BP[ba_tier_applied] > 35u && ba_lim_applied < BP_MQB ? 35u : BA_TIER_BP[ba_tier_applied];
+                                                   /* (a DH3 holds two frames of up to bitpool 35; DH1 pieces make a 5-frame packet) */
+        uint8_t bp_max = ba.conf[3] < want ? ba.conf[3] : want;   /* (the agreed range) */
+        uint8_t bpv = bp_max < ba.conf[2] ? ba.conf[2] : bp_max;
+        uint32_t room = dh1 ? BP_MQB : ba_lim_applied;
+        uint32_t fit = (room - 17u) / bt_sbc_frame_len(bpv, 1);   /* (frames that fit the slot: a high agreed minimum may take fewer) */
+        uint32_t most = dh1 ? BA_DH1_FR : BA_TIER_FR[ba_tier_applied];
+        bt_sbc_init(&ba_sbc, 44100, bpv, 1);
+        ba_bpv = bpv;
+        ba_mfr = (uint8_t)(fit < most ? (fit ? fit : 1u) : most);
         ba_sbc_init_done = 1;
     }
     for (i = 0; i < n; i++) {
@@ -398,7 +441,7 @@ int bt_audio_feed(const int32_t *q15_pcm, uint32_t n)   /* 1: it streams (audio.
             for (k = 0; k < slen && ba_mlen + k < sizeof ba_mbuf; k++)
                 ba_mbuf[ba_mlen + k] = frame[k];
             ba_mlen += k;
-            if (++ba_mn == (bp.slots5 == 2u ? BA_MFRAMES : 1u)) {   /* (DH5: BA_MFRAMES frames; DH3: one) */
+            if (++ba_mn >= ba_mfr) {                   /* (ba_mfr frames fill the DH5, or the DH3 the device left us) */
                 ba_media_send(ba_mbuf, ba_mlen, ba_mn);
                 ba_mlen = ba_mn = 0;
             }

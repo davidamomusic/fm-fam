@@ -1,0 +1,51 @@
+# FM-FAM v0.13: Bluetooth's switch and the device kept survive a restart; with it off the radio stays quiet
+wait 500
+expect bton 0
+tap GLO
+spin SELECT 4
+spin K1 1
+expect bton 1
+bta add PHONES
+spin K4 1
+wait 1300
+expect btn 1
+spin K3 1
+spin K4 1
+wait 700
+expect btstate 7
+expect btkn 1
+# the radio's news waits for a quiet moment (the sequencer stopped): then it is in the flash
+expect btdirty 1
+wait 2500
+expect btdirty 0
+reboot
+wait 800
+expect bton 1
+tap GLO
+spin SELECT 4
+wait 200
+expect page 4
+expect btkn 1
+shot v13_bt_after_reboot.png
+# switched off, it stays off after a restart, and the kept device is still kept
+spin K1 -1
+expect bton 0
+wait 2500
+expect btdirty 0
+reboot
+wait 800
+expect bton 0
+tap GLO
+spin SELECT 4
+wait 200
+expect btn 0
+spin K1 1
+expect bton 1
+expect btkn 1
+# a running sequencer holds the write back (it would stop the sound): nothing is written until it stops
+tap PLAY
+wait 2500
+expect btdirty 1
+tap PLAY
+wait 2500
+expect btdirty 0

@@ -1,0 +1,142 @@
+# FM-FAM v0.9 in the host simulator: tools/build.py fam --host, then
+#   fam/build/host/fm-fam_host fam/tests/basic.txt fam/build/host
+wait 600
+expect mode 0
+expect len 8
+shot v_seq.png
+# a held step: the knobs edit that step
+key w3 down
+wait 60
+spin K1 5
+spin K2 -10
+spin K3 -4
+spin K4 2
+wait 80
+shot v_seq_edit.png
+key w3 up
+wait 80
+expect sel 3
+expect pit3 10
+expect rat3 2
+expect gate3 25
+# ALGORITHM walks the steps, SELECT the pages
+spin ALGO 2
+expect sel 5
+spin SELECT 1
+expect page 1
+spin K3 2
+expect len 10
+wait 80
+shot v_seq_p2.png
+spin K3 -2
+expect len 8
+spin SELECT -1
+# run
+wav v_song.wav
+tap PLAY
+wait 2600
+expect running 1
+shot v_run.png
+# synth pages
+tap EDIT
+expect mode 1
+wait 80
+shot v_osc.png
+spin SELECT 1
+wait 80
+shot v_filter.png
+spin K4 1
+wait 80
+shot v_filter_hp.png
+spin SELECT 1
+wait 80
+shot v_env.png
+spin SELECT 1
+wait 80
+shot v_mixer.png
+spin SELECT 1
+wait 80
+shot v_mod.png
+spin SELECT 1
+wait 80
+shot v_output.png
+tap SEQ
+expect mode 0
+tap ENV
+expect mode 1
+expect page 2
+wait 80
+shot v_env2.png
+# the patchbay
+tap LFO
+expect mode 2
+spin K2 3
+spin K1 3
+spin K3 20
+spin K4 1
+wait 80
+expect pon 8
+expect src3 3
+shot v_patch.png
+spin ALGO 2
+spin K1 2
+spin K4 1
+wait 80
+shot v_patch2.png
+# the kick
+tap ARP
+expect mode 3
+wait 80
+shot v_kick.png
+spin SELECT 1
+wait 80
+shot v_kick2.png
+spin SELECT 1
+wait 80
+shot v_kick3.png
+# the effects: the keys switch them
+tap FX
+expect mode 4
+expect fxen 38
+tapkey w1
+wait 60
+expect fxen 36
+tapkey w1
+wait 60
+expect fxen 38
+shot v_fx.png
+spin SELECT 1
+wait 80
+shot v_fx2.png
+spin SELECT 1
+wait 80
+shot v_fx3.png
+# patterns: a black key is a bank, a white key a pattern
+tap GLO
+expect mode 5
+tapkey b2
+expect bank 2
+tapkey w4
+expect queued 36
+wait 100
+shot v_patt.png
+tap GLO
+expect page 1
+wait 80
+shot v_song.png
+tap HOME
+expect mode 8
+spin SELECT 6
+wait 80
+shot v_help.png
+spin SELECT 1
+wait 80
+shot v_help2.png
+spin SELECT 1
+wait 80
+shot v_help3.png
+wavstop
+tap SEQ
+tap PLAY
+wait 50
+expect running 0

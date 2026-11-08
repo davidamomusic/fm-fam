@@ -1,0 +1,22 @@
+# every synth preset, two bars each, recorded: fam/build/host/presets.wav
+wait 300
+tap EDIT
+wav presets.wav
+tap PLAY
+wait 4000
+turn PRESET 1
+wait 4000
+turn PRESET 1
+wait 4000
+turn PRESET 1
+wait 4000
+turn PRESET 1
+wait 4000
+turn PRESET 1
+wait 4000
+turn PRESET 1
+wait 4000
+turn PRESET 1
+wait 4000
+wavstop
+tap PLAY

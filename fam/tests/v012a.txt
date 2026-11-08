@@ -1,0 +1,108 @@
+# FM-FAM v0.12: the nudge of SEQ (OCT- held + encoder 4)
+wait 500
+expect mode 0
+expect len 8
+# the start pattern: trigs on 0 (accent), 2, 3, 6; pitches +12 on 2 and +7 on 6; the kick on 0 and 4
+expect trig0 2
+expect trig2 1
+expect trig3 1
+expect trig6 1
+expect trig1 0
+expect pit2 12
+expect pit6 7
+expect ktrig0 1
+expect ktrig4 1
+wait 80
+shot v12_seq_normal.png
+# OCT- down: K1-K3 empty and K4 is the nudge, 0 at first
+press OCT-
+wait 120
+expect nudge 0
+shot v12_seq_nudge0.png
+# one click to the right: every step one place later, the pitch with its trig
+spin K4 1
+wait 80
+expect nudge 1
+expect trig0 0
+expect trig1 2
+expect trig2 0
+expect trig3 1
+expect trig4 1
+expect trig5 0
+expect trig6 0
+expect trig7 1
+expect pit3 12
+expect pit7 7
+expect pit2 0
+expect pit6 0
+shot v12_seq_nudge1.png
+# the other way, past the first step: it wraps around the length (8)
+spin K4 -3
+wait 80
+expect nudge -2
+expect trig0 1
+expect trig1 1
+expect trig2 0
+expect trig3 0
+expect trig4 1
+expect trig5 0
+expect trig6 2
+expect trig7 0
+expect pit0 12
+expect pit4 7
+spin K4 -1
+expect nudge -3
+expect trig5 2
+expect trig0 1
+expect trig3 1
+expect trig7 1
+shot v12_seq_nudge-3.png
+# back to where it was: the sequence is the same again
+spin K4 3
+expect nudge 0
+expect trig0 2
+expect trig2 1
+expect trig3 1
+expect trig6 1
+expect trig1 0
+expect pit2 12
+expect pit6 7
+# K1-K3 do nothing to the sound while the nudge is up
+spin K1 5
+spin K2 -4
+spin K3 3
+expect syn0 64
+expect trig0 2
+expect len 8
+# the kick's steps stay where they were
+expect ktrig0 1
+expect ktrig4 1
+expect ktrig1 0
+# a spin of a whole length goes round to the same place
+spin K4 8
+expect trig0 2
+expect trig6 1
+expect nudge 8
+# OCT- up: the footer is back and the nudge count starts again
+release OCT-
+wait 120
+expect nudge 0
+shot v12_seq_after.png
+# the other pages of SEQ: the nudge is there in every one of them
+spin SELECT 1
+expect page 1
+press OCT-
+wait 100
+spin K4 1
+expect trig1 2
+shot v12_seq_p2_nudge.png
+release OCT-
+wait 60
+spin SELECT 1
+expect page 2
+press OCT-
+wait 100
+spin K4 -1
+expect trig0 2
+release OCT-
+wait 60

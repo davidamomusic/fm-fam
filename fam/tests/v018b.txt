@@ -1,0 +1,67 @@
+# FM-FAM v0.18: a kick step's own pitch and volume are heard. kick18a.wav (as it was), kick18b.wav (+12 semitones), kick18c.wav (volume 67 of 127); checked offline with check_v018b.py
+wait 300
+# an empty pattern with one kick step of 4 (the loop is half a second)
+press OCT+
+press REC
+wait 900
+release REC
+release OCT+
+wait 200
+tap ARP
+tapkey w0
+expect ktrig0 1
+spin K4 -3
+spin K4 -3
+spin K4 -3
+spin K4 -3
+expect klen 4
+wait 100
+wav kick18a.wav
+tap PLAY
+wait 1200
+tap PLAY
+wavstop
+wait 300
+# +12 semitones on the step
+key w0 down
+wait 60
+spin K2 3
+spin K2 3
+spin K2 3
+spin K2 3
+key w0 up
+wait 60
+expect kpit0 12
+wav kick18b.wav
+tap PLAY
+wait 1200
+tap PLAY
+wavstop
+wait 300
+# the pitch back, the volume down
+key w0 down
+wait 60
+spin K2 -3
+spin K2 -3
+spin K2 -3
+spin K2 -3
+spin K3 -3
+spin K3 -3
+spin K3 -3
+spin K3 -3
+spin K3 -3
+spin K3 -3
+spin K3 -3
+spin K3 -3
+spin K3 -3
+spin K3 -3
+key w0 up
+wait 60
+expect kpit0 0
+expect kvol0 67
+wav kick18c.wav
+tap PLAY
+wait 1200
+tap PLAY
+wavstop
+wait 200

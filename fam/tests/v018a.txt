@@ -1,0 +1,205 @@
+# FM-FAM v0.18: the kick's sequence in two pages. Page 1: trig, pitch, volume, length. Page 2: condition, ratchet, (empty), nudge.
+wait 500
+tap ARP
+expect mode 3
+expect page 0
+expect kpg 3
+expect klen 16
+# a new step: no shift, full volume
+expect kpit2 0
+expect kvol2 127
+shot v18_kick_page1.png
+# a held step takes K2 (the pitch) and K3 (the volume); the clamps
+key w2 down
+wait 60
+spin K2 3
+spin K3 -3
+expect kpit2 3
+expect kvol2 121
+spin K2 100
+expect kpit2 24
+spin K2 -100
+expect kpit2 -24
+spin K3 -100
+expect kvol2 0
+spin K3 100
+expect kvol2 127
+key w2 up
+wait 60
+# OCT- held: four times as fast
+press OCT-
+wait 60
+key w2 down
+wait 60
+spin K2 1
+expect kpit2 -20
+spin K2 -1
+expect kpit2 -24
+key w2 up
+release OCT-
+wait 60
+# the values of a few steps, to be moved
+key w0 down
+wait 60
+spin K2 -100
+spin K2 3
+spin K3 -100
+spin K3 3
+spin K3 3
+spin K3 3
+key w0 up
+wait 60
+expect kpit0 -21
+expect kvol0 18
+key w1 down
+wait 60
+spin K2 100
+key w1 up
+wait 60
+expect kpit1 24
+expect kvol1 127
+expect ktrig0 1
+expect ktrig1 0
+expect ktrig4 1
+shot v18_kick_page1b.png
+# the second page: the condition and the ratchet; K3 is empty; K4 is the nudge
+spin SELECT 1
+expect page 1
+expect kpg 4
+expect nudge 0
+key w4 down
+wait 60
+spin K1 2
+spin K2 2
+spin K3 5
+key w4 up
+wait 60
+expect kcond4 2
+expect krat4 2
+expect klen 16
+shot v18_kick_page2.png
+# the whole sequence moves one step: trig, pitch, volume, condition, ratchet go with the step; the length stays
+spin K4 1
+wait 60
+expect nudge 1
+expect ktrig0 0
+expect ktrig1 1
+expect ktrig4 0
+expect ktrig5 1
+expect ktrig13 1
+expect kpit1 -21
+expect kvol1 18
+expect kpit2 24
+expect kvol2 127
+expect kpit0 0
+expect kvol0 127
+expect kcond5 2
+expect krat5 2
+expect kcond4 0
+expect klen 16
+shot v18_kick_nudged.png
+# and back; a turn of the whole length is no change; the other direction wraps too
+spin K4 -1
+wait 60
+expect nudge 0
+expect ktrig0 1
+expect kpit0 -21
+expect kvol0 18
+expect kcond4 2
+spin K4 -1
+wait 60
+expect nudge -1
+expect ktrig15 1
+expect kpit15 -21
+expect kvol15 18
+expect kpit0 24
+spin K4 1
+wait 60
+expect kpit0 -21
+# a shorter sequence moves inside its length only
+spin SELECT -1
+expect page 0
+spin K4 -3
+spin K4 -3
+spin K4 -3
+spin K4 -3
+expect klen 4
+expect kvol4 127
+spin SELECT 1
+spin K4 1
+wait 60
+expect kpit1 -21
+expect kpit0 0
+expect kvol4 127
+expect kpit3 -24
+spin K4 -1
+wait 60
+expect kpit0 -21
+spin SELECT -1
+spin K4 3
+spin K4 3
+spin K4 3
+spin K4 3
+expect klen 16
+# changing the page puts the nudge counter back to 0
+spin SELECT 1
+spin K4 3
+expect nudge 3
+spin K4 -3
+spin SELECT -1
+spin SELECT 1
+expect nudge 0
+# the sequencer running: the nudge goes on without a break
+tap PLAY
+wait 600
+spin K4 1
+wait 400
+spin K4 1
+wait 400
+spin K4 -2
+wait 900
+tap PLAY
+wait 200
+expect running 0
+expect ktrig0 1
+expect kpit0 -21
+# REC with a kick step held clears it: no pitch, full volume
+spin SELECT -1
+key w0 down
+wait 60
+press REC
+wait 60
+release REC
+key w0 up
+wait 100
+expect ktrig0 0
+expect kpit0 0
+expect kvol0 127
+# what the banks keep: the pitch and the volume of the steps survive a restart
+expect kpit1 24
+expect kvol1 127
+expect kpit2 -24
+key w3 down
+wait 60
+spin K3 -3
+key w3 up
+wait 60
+expect kvol3 121
+wait 2500
+expect dirty 0
+reboot
+wait 800
+expect kpit1 24
+expect kvol1 127
+expect kpit2 -24
+expect kvol3 121
+expect kpit0 0
+expect kvol0 127
+expect ktrig1 0
+# the format: awkward values go through the bit packing and come back; a bank of v0.9 to v0.17 is read as it was
+expect fp5rt 1
+expect fp4load 1
+expect kpit1 24
+tap ARP
+wait 200
+shot v18_after_reboot.png

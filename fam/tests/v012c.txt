@@ -1,0 +1,97 @@
+# FM-FAM v0.12: a random from the keys (OCT- + REC) in SEQ, KICK SEQ and PATCH, and the whole one (OCT+ + REC, a tap)
+wait 500
+expect mode 0
+expect page 0
+# a lock on step 3 in SYNTH: the new steps of a random take it away
+tap EDIT
+key w2 down
+wait 60
+spin K1 3
+key w2 up
+wait 60
+expect lk2 1
+tap SEQ
+expect mode 0
+expect page 0
+# SEQ page 1: pitch and velocity (and the rests) of a new draw
+press OCT-
+wait 60
+press REC
+wait 60
+release REC
+release OCT-
+wait 100
+expect stepsok 1
+expect lk2 0
+expect trig0 2
+expect pit0 0
+# SEQ page 2: the rests alone leave the pitches as they are
+tap SEQ
+expect page 1
+expect rnden1 2
+press OCT-
+press REC
+wait 60
+release REC
+release OCT-
+wait 100
+expect stepsok 1
+# the kick line: its page of KICK
+tap ARP
+expect mode 3
+expect page 0
+expect kickok 0
+press OCT-
+press REC
+wait 60
+release REC
+release OCT-
+wait 100
+expect kickok 1
+expect ktrig0 2
+expect ktrig1 0
+# the cables: two to four of them
+tap LFO
+expect mode 2
+expect ponn 0
+press OCT-
+press REC
+wait 60
+release REC
+release OCT-
+wait 100
+expect ponok 1
+# the whole one: the steps, the synth and the kick; the cables, the effects and the scale stay where they were
+tap SEQ
+expect mode 0
+expect snap 0
+press OCT+
+wait 60
+press REC
+wait 60
+release REC
+release OCT+
+wait 100
+expect mode 0
+expect chgsyn 1
+expect chgkick 1
+expect chgfx 0
+expect chgsc 0
+expect chgpatch 0
+expect stepsok 1
+expect kickok 1
+expect bpm 118
+# OCT- as well as OCT+: still only the random of this page (the steps of SEQ), the synth and the kick stay
+expect snap 0
+press OCT-
+press OCT+
+wait 60
+press REC
+wait 60
+release REC
+release OCT+
+release OCT-
+wait 100
+expect chgsyn 0
+expect chgkick 0
+expect stepsok 1

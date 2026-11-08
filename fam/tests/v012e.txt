@@ -1,0 +1,12 @@
+# FM-FAM v0.12: the screen mirror (fm1.toml mirror = true): the stream of the screen to a file of SysEx
+wait 500
+mirror out:fam_mirror.syx
+wait 600
+tap SEQ
+wait 300
+spin K4 3
+wait 500
+shot v12_mirror_ref.png
+wait 800
+mirror off
+wait 100

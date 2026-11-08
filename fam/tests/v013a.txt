@@ -1,0 +1,88 @@
+# FM-FAM v0.13 (updated for v0.18): KICK opens on its sequence, in two pages; the three pages of knobs follow
+wait 500
+tap ARP
+expect mode 3
+expect page 0
+expect klen 16
+wait 80
+shot v13_kick_seq.png
+# K4 is the sequence's length on this page
+spin K4 -2
+expect klen 14
+spin K4 2
+expect klen 16
+expect kick0 30
+# a held step takes K2 (the pitch) here
+key w3 down
+wait 60
+spin K2 1
+key w3 up
+wait 60
+expect kpit3 1
+# the second page of the sequence: the condition is K1
+spin SELECT 1
+expect page 1
+wait 80
+shot v13_kick_seq2.png
+key w3 down
+wait 60
+spin K1 1
+key w3 up
+wait 60
+expect kcond3 1
+# the next page: pitch and decay (K1 is the tune now, and the sequence is left alone)
+spin SELECT 1
+expect page 2
+wait 80
+shot v13_kick_pitch.png
+spin K1 2
+expect kick0 32
+expect kcond3 1
+expect kpit3 1
+expect klen 16
+# then tone, then FM and noise
+spin SELECT 1
+expect page 3
+spin K3 -3
+expect kick6 97
+spin SELECT 1
+expect page 4
+wait 80
+shot v13_kick_fm.png
+spin SELECT 1
+expect page 4
+spin SELECT -4
+expect page 0
+# the mode keeps the page it was left on
+spin SELECT 3
+tap FX
+tap ARP
+expect mode 3
+expect page 3
+# REC opens the random page of the page we are on: the steps for both pages of the sequence, the tone page of the kick for the others
+spin SELECT -3
+expect page 0
+tap REC
+expect mode 6
+expect page 12
+tap REC
+expect mode 3
+expect page 0
+spin SELECT 1
+tap REC
+expect mode 6
+expect page 12
+tap REC
+expect mode 3
+expect page 1
+spin SELECT 1
+tap REC
+expect mode 6
+expect page 9
+tap REC
+expect mode 3
+# ARP again and again goes round the five pages and back to the sequence
+tap ARP
+tap ARP
+tap ARP
+expect page 0

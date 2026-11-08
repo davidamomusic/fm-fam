@@ -1,0 +1,114 @@
+# FM-FAM v0.9: the tempo buttons, REC and the random pages, the scale
+wait 500
+expect bpm 118
+# OCT- and OCT+ no longer touch the tempo (a tap, or held)
+tap OCT-
+tap OCT+
+tap OCT+
+press OCT+
+wait 1000
+release OCT+
+press OCT-
+wait 1000
+release OCT-
+wait 60
+expect bpm 118
+# ALGORITHM moves the tempo outside SEQ, in the synth
+tap EDIT
+expect mode 1
+expect page 0
+turn ALGO -8
+wait 60
+expect bpm 110
+turn ALGO 8
+wait 60
+expect bpm 118
+# SYNTH, the filter page: OCT- + REC randomizes this page only; the tempo stays
+tap EDIT
+expect page 1
+expect snap 0
+press OCT-
+wait 60
+press REC
+wait 60
+release REC
+wait 60
+release OCT-
+wait 100
+expect mode 1
+expect chgsyn 1
+expect chgkick 0
+expect chgfx 0
+expect chgsc 0
+expect bpm 118
+# the oscillator page then follows the RANDOM page of its own
+expect snap 0
+tap ARP
+spin SELECT 2
+press OCT-
+press REC
+wait 60
+release REC
+release OCT-
+wait 100
+expect chgkick 1
+expect chgsyn 0
+expect bpm 118
+# the steps, the synth and the kick: OCT+ + REC, a tap. The effects, the cables, the scale pages and the tempo stay out
+expect snap 0
+press OCT+
+wait 60
+press REC
+wait 60
+release REC
+release OCT+
+wait 100
+expect chgsyn 1
+expect chgfx 0
+expect chgkick 1
+expect chgsc 0
+expect chgpatch 0
+expect bpm 118
+# no tempo step was made by the chord
+tap FX
+expect snap 0
+# the random page: a knob off is a knob that stays
+tap REC
+wait 60
+expect mode 6
+expect page 13
+tapkey w0
+tapkey w1
+tapkey w2
+tapkey w3
+wait 60
+expect rnden13 0
+tapkey w4
+wait 60
+expect rnden13 15
+tapkey w0
+wait 60
+expect rnden13 14
+spin K2 -100
+expect rndamt13 127
+# the amount: K1 down to 0, then a random on this page changes nothing in K1
+tapkey w5
+wait 60
+tap REC
+wait 60
+expect mode 4
+# SCALE: any key sets the root; the scale and its quantization follow the knobs
+tap SEL
+expect mode 7
+tapkey w0
+wait 60
+expect sc0 5
+tapkey w4
+wait 60
+expect sc0 0
+spin K2 2
+spin K4 1
+wait 60
+shot v8_scale.png
+# the global random page (off by default): enabling it makes OCT+ + REC (a tap) move the tempo
+tap SEQ

@@ -1,0 +1,95 @@
+# FM-FAM v0.13: the BLUETOOTH page of GLO (the sound to headphones and speakers), on the simulator's stand-in
+wait 500
+expect bton 0
+tap GLO
+expect mode 5
+spin SELECT 4
+expect page 4
+wait 100
+shot v13_bt_off.png
+# off: nothing to list, and K4 only says so
+spin K4 1
+wait 50
+expect btn 0
+# K1 switches it on at the first click (turned the other way: off)
+spin K1 1
+expect bton 1
+wait 200
+spin K1 -1
+expect bton 0
+spin K1 1
+expect bton 1
+wait 300
+shot v13_bt_on.png
+# two devices around: SCAN lists them
+bta add HEADSET
+bta add SPEAKER
+expect btact 0
+spin K4 1
+wait 1300
+expect btn 2
+expect btkn 0
+shot v13_bt_found.png
+# K2 and ALGORITHM go down the list
+expect btsel 0
+spin K2 1
+expect btsel 1
+spin K2 -1
+expect btsel 0
+turn ALGO 1
+expect btsel 1
+turn ALGO -1
+expect btsel 0
+# K3: the action (CONNECT), K4 turned right does it: the first one connects and streams
+spin K3 1
+expect btact 1
+spin K4 1
+wait 700
+expect btstate 7
+expect btkn 1
+shot v13_bt_stream.png
+# the page does not touch the patterns: the white keys do nothing here
+expect pat 0
+tapkey w3
+wait 80
+expect pat 0
+# OUTPUT (K3 to the last action) switches the sound to the FM-1's own output and back, the link kept
+spin K3 3
+expect btact 4
+spin K4 1
+wait 50
+expect btstate 7
+spin K4 1
+wait 50
+# HANG UP ends the link
+spin K3 -2
+expect btact 2
+spin K4 1
+wait 300
+shot v13_bt_hangup.png
+# FORGET takes the kept device out of the list (kept ones come first)
+spin K3 1
+expect btact 3
+expect btkn 1
+spin K4 1
+wait 300
+expect btkn 0
+# the device leaves while it streams: the link is lost, said once
+spin K3 -3
+expect btact 0
+spin K4 1
+wait 1300
+spin K3 1
+spin K4 1
+wait 700
+expect btstate 7
+bta drop HEADSET
+wait 100
+shot v13_bt_lost.png
+expect btstate 10
+# switching Bluetooth off empties the page
+spin K1 -1
+expect bton 0
+expect btn 0
+wait 200
+shot v13_bt_off2.png

@@ -1,0 +1,112 @@
+# FM-FAM v0.9: every pattern has a sound of its own, the autosave, and what the flash keeps over a reboot
+wait 500
+expect pat 0
+expect sok 1
+expect sokp1 0
+expect syn0 64
+# pattern 1 edits its sound: pattern 0 keeps its own
+tap EDIT
+spin K1 3
+expect syn0 67
+tap GLO
+expect mode 5
+tapkey w1
+wait 100
+expect pat 1
+expect syn0 67
+expect sokp1 1
+tap EDIT
+spin K1 -2
+expect syn0 65
+wait 100
+tap GLO
+tapkey w0
+wait 100
+expect pat 0
+expect syn0 67
+tapkey w1
+wait 100
+expect pat 1
+expect syn0 65
+# a pattern never visited takes the sound that is playing
+tapkey w2
+wait 100
+expect pat 2
+expect syn0 65
+expect sokp2 1
+# going back and forth changes nothing: pattern 0 is still 67
+tapkey w0
+wait 100
+expect syn0 67
+# running: the pattern changes at the end of the bar, and so does its sound
+tap PLAY
+wait 100
+tapkey w1
+wait 2600
+expect pat 1
+expect syn0 65
+tapkey w0
+wait 2600
+expect pat 0
+expect syn0 67
+tap PLAY
+wait 100
+expect running 0
+# the autosave: stopped, 1.5 s after the last change, and the unit says it is saved
+tap EDIT
+spin K1 2
+expect syn0 69
+expect dirty 1
+wait 4000
+expect dirty 0
+# a reboot gives every pattern its own sound back
+reboot
+wait 800
+expect pat 0
+expect syn0 69
+expect sokp1 1
+tap GLO
+tapkey w1
+wait 100
+expect pat 1
+expect syn0 65
+tapkey w2
+wait 100
+expect syn0 65
+tapkey w0
+wait 100
+expect syn0 69
+# the pattern sound pages: its presets, TO BANK, TO ALL, RESET
+spin SELECT 2
+expect page 2
+wait 100
+shot v9_patt_sound1.png
+turn K1 3
+wait 100
+expect ppre0 4
+spin SELECT 1
+expect page 3
+wait 100
+shot v9_patt_sound2.png
+# RESET: the first power-on sound for this pattern only
+turn K4 1
+wait 100
+expect syn0 64
+spin SELECT -3
+tapkey w1
+wait 100
+expect pat 1
+expect syn0 65
+tapkey w0
+wait 100
+expect syn0 64
+# TO ALL: every pattern takes this pattern's sound
+spin SELECT 3
+turn K3 1
+wait 100
+tapkey w1
+wait 100
+expect syn0 64
+tapkey w2
+wait 100
+expect syn0 64

@@ -1,0 +1,16 @@
+# FM-FAM v0.12: the random draws (the steps, the kick line, the sound, the cables) and their defaults
+wait 400
+expect rndsteps 0
+expect rndkick 0
+expect rndsyn 0
+expect rndcables 0
+# the new defaults of the random pages: a whole draw, the steps' two pages, the kick's steps, the cables
+expect rndamt0 127
+expect rndamt2 127
+expect rnden0 3
+expect rnden1 2
+expect rnden8 1
+expect rnden12 1
+expect rnden20 0
+expect rnden22 0
+expect rnden2 15

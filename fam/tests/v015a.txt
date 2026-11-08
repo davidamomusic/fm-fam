@@ -1,0 +1,70 @@
+# FM-FAM v0.15: the BLUETOOTH page's two switches for headphones that share the air: QUALITY (the stream's bits) and BT MIDI (the advertising)
+wait 500
+expect bton 0
+expect btq 0
+expect btqp 0
+tap GLO
+spin SELECT 4
+spin K1 1
+expect bton 1
+bta add BUDS
+spin K4 1
+wait 1300
+expect btn 1
+spin K3 1
+spin K4 1
+wait 700
+expect btstate 7
+# QUALITY is the sixth action: each turn of K4 goes HIGH > MID > LOW > HIGH
+spin K3 4
+expect btact 5
+wait 100
+shot v15_bt_quality.png
+spin K4 1
+expect btq 1
+expect btqp 1
+spin K4 1
+expect btq 2
+expect btqp 2
+wait 300
+shot v15_bt_low.png
+spin K4 1
+expect btq 0
+expect btqp 0
+spin K4 1
+expect btq 1
+expect btqp 1
+# a turn to the left does nothing
+spin K4 -1
+expect btq 1
+# BT MIDI is the last action: K4 switches the advertising off, and on again
+spin K3 1
+expect btact 6
+expect btmidioff 0
+spin K4 1
+expect btmidioff 1
+wait 300
+shot v15_bt_midi_off.png
+# the sound goes on streaming through both changes
+expect btstate 7
+spin K4 -1
+expect btmidioff 1
+# both are kept: written when the player has stopped touching things, and there after a restart
+wait 2500
+expect btdirty 0
+reboot
+wait 800
+expect bton 1
+expect btq 1
+expect btqp 1
+expect btmidioff 1
+# the quality and the MIDI switch with Bluetooth off: K4 only says it is off
+tap GLO
+spin SELECT 4
+spin K1 -1
+expect bton 0
+spin K3 -1
+spin K4 1
+wait 50
+expect btq 1
+expect btmidioff 1

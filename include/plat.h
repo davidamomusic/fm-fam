@@ -282,6 +282,16 @@ enum { PLAT_BTA_LOST_NONE, PLAT_BTA_LOST_LINK, PLAT_BTA_LOST_PAIRING, PLAT_BTA_L
        PLAT_BTA_LOST_STREAMING, PLAT_BTA_LOST_REFUSED };
 int plat_bta_lost(void);
 int plat_bta_timed_out(void);          /* PLAT_BTA_REFUSED because the set-up timed out (the device never said no) */
+int plat_bta_quality(int tier);        /* the SBC stream's quality: 0 HIGH (the default: 3 frames of bitpool 46 a packet, 289 kbit/s),
+                                        * 1 MID (4 of 32, 212 kbit/s), 2 LOW (5 of 25, 174 kbit/s): fewer, shorter claims on the
+                                        * air for a device that shares it (earbuds that pass the sound on to each other). From the
+                                        * next packet; -1 asks which is in force. Returns the one in force */
+int plat_bta_link(uint32_t v[7]);      /* the Classic link while it streams (1; 0: not streaming), per second: v[0] receptions that were
+                                        * good, v[1] that were not (a repeat of ours that went unheard counts here), v[2] audio packets
+                                        * dropped (the queue full), v[3] times a packet waited for the radio's two buffers (resends);
+                                        * v[4] the slots our packets take (5, 3; 0: none granted), v[5] the device's last preferred-rate
+                                        * byte (0: none), v[6] the SBC bitpool in force (a device that lets us one slot gets 16 or less). For an app that shows
+                                        * what the air is doing */
 int32_t plat_bta_latency_us(void);     /* what the stream adds on the FM-1's side (its queue), us; -1: not streaming.
                                         * An app that follows a clock may play that much earlier (the device's own
                                         * buffer comes on top and is not known) */

@@ -79,7 +79,7 @@ int main(void)
     uint32_t i, flen, bad;
     double a[4];
     char what[160];
-    static const struct { uint8_t bitpool, js; } SETS[] = {{53, 1}, {53, 0}, {35, 1}};
+    static const struct { uint8_t bitpool, js; } SETS[] = {{53, 1}, {53, 0}, {35, 1}, {46, 1}, {32, 1}, {25, 1}, {14, 1}, {12, 1}, {10, 1}};   /* (46, 32, 25: the quality tiers; 35: two frames in a DH3; 14, 12, 10: the DH1 mode) */
     for (i = 0; i < NFR * 128u; i++) {
         pcm_in[2u * i] = (int16_t)(12000.0 * sin(2 * M_PI * 1000.0 * i / 44100.0));
         pcm_in[2u * i + 1u] = (int16_t)(12000.0 * sin(2 * M_PI * 440.0 * i / 44100.0));

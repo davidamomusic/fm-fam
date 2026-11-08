@@ -1,0 +1,24 @@
+# FM-FAM v0.17: the BLUETOOTH page when the device lets the FM-1 one slot (the Galaxy Buds Pro: SLOTS 1, then the bitpool 14), three, five
+wait 500
+tap GLO
+spin SELECT 4
+spin K1 1
+expect bton 1
+bta add BUDS
+spin K4 1
+wait 1300
+expect btn 1
+spin K3 1
+spin K4 1
+wait 700
+expect btstate 7
+bta slots 1
+wait 1400
+shot v17_bt_slots1.png
+bta slots 3
+wait 1400
+shot v17_bt_slots3.png
+bta slots 5
+wait 1400
+shot v17_bt_slots5.png
+expect btstate 7

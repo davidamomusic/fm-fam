@@ -1,0 +1,92 @@
+# FM-FAM v0.9: the HOME lists (projects and presets), the presets of a pattern and the recall
+wait 500
+expect pj1 0
+expect uused0 0
+tap EDIT
+spin K1 3
+expect syn0 67
+tap SEQ
+expect trig2 1
+tapkey w2
+wait 60
+expect trig2 2
+# HOME, projects: slot 1, SAVE, turn K4
+tap HOME
+expect mode 8
+expect page 0
+tapkey w1
+wait 60
+expect hidx0 1
+spin K2 1
+expect hact 1
+spin K4 1
+wait 100
+expect pj1 1
+# the sound and the pattern change; LOAD brings the project back
+tap EDIT
+spin K1 -10
+expect syn0 37
+tap SEQ
+tapkey w2
+wait 60
+expect trig2 0
+tap HOME
+tapkey w1
+spin K2 -1
+expect hact 0
+spin K4 1
+wait 100
+expect syn0 67
+tap SEQ
+expect trig2 2
+# the project slots: clear slot 1
+tap HOME
+tapkey w1
+turn K2 3
+expect hact 3
+spin K4 1
+wait 100
+expect pj1 0
+# a user synth preset: page 2, user slot 1 (after the 16 of the factory), SAVE
+spin SELECT 1
+expect page 1
+spin K1 16
+expect hidx1 16
+turn K2 -3
+turn K2 1
+expect hact 1
+spin K4 1
+wait 100
+expect uused0 1
+# change the sound, load the preset back
+tap EDIT
+spin K1 3
+expect syn0 70
+tap HOME
+turn K2 -3
+expect hact 0
+spin K4 1
+wait 100
+expect syn0 67
+# the user preset can be cleared
+tap SEQ
+tap HOME
+turn K2 3
+spin K4 1
+wait 100
+expect uused0 0
+# a kick preset and an FX preset from the factory list through the PRESET encoder
+tap ARP
+turn PRESET 2
+wait 60
+expect pre1 2
+tap FX
+turn PRESET 3
+wait 60
+expect pre2 3
+# patterns: each can recall a preset of every kind; PATTERNS page 3
+tap GLO
+expect mode 5
+spin SELECT 2
+expect page 2
+shot v8_patt_pre.png

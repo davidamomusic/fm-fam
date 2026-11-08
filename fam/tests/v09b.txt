@@ -1,0 +1,355 @@
+# FM-FAM v0.9: the tempo page of SEQ, OCT- and OCT+, REC and the init, the page keys, the switches, the FX mixer
+wait 500
+expect mode 0
+expect page 0
+expect bpm 118
+# SEQ has three pages; the third one is the tempo
+tap SEQ
+expect page 1
+tap SEQ
+expect page 2
+wait 80
+shot v9_tempo.png
+spin K1 4
+expect bpm 126
+spin K1 -1
+expect bpm 125
+turn K2 1
+expect bpm 135
+turn K2 -1
+expect bpm 125
+spin ALGO -7
+expect bpm 118
+# the next press goes back to the first page
+tap SEQ
+expect page 0
+expect mode 0
+# OCT- and OCT+ leave the tempo alone, tapped or held
+tap OCT-
+tap OCT+
+tap OCT+
+press OCT+
+wait 900
+release OCT+
+press OCT-
+wait 900
+release OCT-
+wait 60
+expect bpm 118
+expect initt 0
+# every mode key goes to the next page and, at the last one, back to the first
+tap EDIT
+expect mode 1
+expect page 0
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+expect page 5
+tap EDIT
+expect page 0
+tap LFO
+expect mode 2
+tap LFO
+expect mode 2
+expect page 0
+tap ARP
+expect mode 3
+tap ARP
+tap ARP
+tap ARP
+expect page 3
+tap ARP
+expect page 4
+tap ARP
+expect page 0
+tap FX
+expect mode 4
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+expect page 6
+tap FX
+expect page 0
+tap SEL
+expect mode 7
+tap SEL
+expect page 1
+tap SEL
+expect page 0
+tap GLO
+expect mode 5
+tap GLO
+tap GLO
+tap GLO
+expect page 3
+tap GLO
+expect page 4
+tap GLO
+expect page 0
+tap HOME
+expect mode 8
+tap HOME
+expect page 1
+spin SELECT 8
+expect page 9
+tap HOME
+expect page 0
+# ENV: from another mode it opens the envelopes; in SYNTH it is a page key like the others
+tap SEQ
+tap ENV
+expect mode 1
+expect page 2
+tap ENV
+expect page 3
+# the SYNC switch flips at the first click of K3, on the mixer page
+tap SEQ
+tap EDIT
+expect mode 1
+expect page 3
+expect syn9 0
+spin K3 1
+expect syn9 127
+spin K3 -1
+expect syn9 0
+spin K3 1
+expect syn9 127
+spin K3 2
+expect syn9 127
+spin K3 -1
+expect syn9 0
+# the same on a held step: the lock flips at once
+key w4 down
+wait 60
+spin K3 1
+key w4 up
+wait 60
+expect syn9 0
+expect lkv4 127
+# the SLOPE switch of the DJ filter, too
+tap FX
+expect mode 4
+spin SELECT -6
+spin SELECT 4
+expect page 4
+expect fx19 0
+spin K3 1
+expect fx19 127
+spin K3 -1
+expect fx19 0
+# the FX mixer: delay mix, reverb mix, DJ cutoff, stutter slice
+spin SELECT 2
+expect page 6
+wait 80
+shot v9_fxmix.png
+spin K3 5
+expect fx16 15
+expect fx18 127
+spin K4 1
+wait 60
+expect fx5 100
+spin K1 2
+spin K2 2
+wait 60
+shot v9_fxmix2.png
+# the mixer still switches the four effects, now with the cutoff and the slice on the other two knobs
+tapkey w2
+tapkey w3
+wait 60
+expect fxen 62
+# REC alone: the random pages, and back
+tap REC
+wait 60
+expect mode 6
+tap REC
+wait 60
+expect mode 4
+# OCT- + REC: a random of this page only (the FX mixer page here)
+expect snap 0
+press OCT-
+wait 60
+press REC
+wait 60
+release REC
+release OCT-
+wait 100
+expect mode 4
+expect chgfx 1
+expect chgsyn 0
+expect bpm 118
+# OCT+ and REC: nothing happens before 0.7 s; let go sooner it is the whole random, and it does not open RANDOM.
+# (pattern 5 here, so that the steps of pattern 0 stay as they are for the checks below)
+tap SEQ
+tap EDIT
+spin SELECT -9
+expect page 0
+spin K1 3
+expect syn0 67
+tap GLO
+tapkey w5
+wait 100
+expect pat 5
+tap EDIT
+expect syn0 67
+expect snap 0
+press OCT+
+press REC
+wait 300
+expect initt 1
+expect syn0 67
+expect chgsyn 0
+release REC
+release OCT+
+wait 100
+expect initt 0
+expect mode 1
+expect chgsyn 1
+expect chgkick 1
+expect chgfx 0
+expect chgsc 0
+expect stepsok 1
+expect kickok 1
+expect bpm 118
+tap GLO
+tapkey w0
+wait 100
+expect pat 0
+tap EDIT
+expect mode 1
+# OCT+ first, REC second: the same, and OCT- joining cancels the init (a random page runs instead)
+press OCT+
+wait 100
+press REC
+wait 300
+press OCT-
+wait 900
+expect initt 0
+expect mode 1
+release OCT-
+release REC
+release OCT+
+wait 100
+expect mode 1
+# held for 0.7 s: only the pattern we are in starts over (its steps and its sound); tempo and the rest stay
+tap GLO
+tapkey w3
+wait 100
+expect pat 3
+tap EDIT
+spin SELECT -9
+spin K1 3
+wait 100
+tap SEQ
+expect mode 0
+expect page 0
+tapkey w2
+tapkey w5
+expect trig2 1
+expect trig5 1
+spin ALGO 3
+expect sel 7
+expect snap 0
+press OCT+
+press REC
+wait 300
+expect initt 1
+wait 600
+release REC
+release OCT+
+wait 200
+expect mode 0
+expect page 0
+expect pat 3
+expect bpm 118
+expect trig2 0
+expect trig5 0
+expect sok 1
+expect syn0 64
+expect chgsyn 1
+expect fxen 46
+expect dirty 1
+# nobody opens RANDOM at the release of that REC
+wait 100
+expect mode 0
+# the other patterns are as they were: pattern 0 is still the demo
+tap GLO
+tapkey w0
+wait 100
+expect pat 0
+expect trig0 2
+expect trig2 1
+# running: it is the same, the pattern playing starts over and goes on
+tap PLAY
+wait 300
+tapkey w0
+tap SEQ
+press OCT+
+press REC
+wait 900
+release REC
+release OCT+
+wait 200
+expect running 1
+expect trig0 0
+expect trig2 0
+tap PLAY
+wait 100
+# the autosave keeps the init, with the other patterns, over a reboot
+wait 4000
+expect dirty 0
+reboot
+wait 800
+expect pat 0
+expect trig0 0
+tap GLO
+tapkey w3
+wait 100
+expect pat 3
+expect trig2 0
+expect syn0 64
+# OCT- held + K1-K4: the values move faster (a click is eight steps on a 0-127 knob)
+tap SEQ
+tap EDIT
+spin SELECT -9
+expect page 0
+expect syn0 64
+spin K1 1
+expect syn0 65
+press OCT-
+wait 60
+spin K1 1
+release OCT-
+wait 60
+expect syn0 73
+press OCT-
+spin K1 -1
+release OCT-
+wait 60
+expect syn0 65
+expect bpm 118
+# the FX mixer: the last white key switches the delay, reverb, DJ filter and stutter off, together
+tap FX
+spin SELECT -9
+spin SELECT 6
+expect page 6
+expect fxen 46
+tapkey w2
+tapkey w4
+wait 60
+expect fxen 63
+tapkey w15
+wait 60
+expect fxen 33
+# the compressor and the limiter stay as they were; pressing it again changes nothing
+tapkey w15
+wait 60
+expect fxen 33
+# on another page of the FX the last key does nothing
+spin SELECT -1
+tapkey w15
+wait 60
+expect fxen 33

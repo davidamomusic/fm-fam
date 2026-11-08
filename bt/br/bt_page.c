@@ -5,6 +5,7 @@
  * features, version and host connection requests, the answers to what the device asks, setup complete. Every step is
  * printed as a `btpage:` line. Included by bt_inq.c (its frame, rings, options and printing). No vendor code. */
 #include "bt_lmp.c"
+#include "bt_piece.h"
 #if FELUCCA_BT_AFH
 #include "bt_afh.c"                                /* the channels the device fails on out of the hopping (LMP_set_AFH) */
 #endif
@@ -48,6 +49,12 @@ static struct {
     uint32_t txw, txr, stop_ms;
     uint8_t slots5;                                /* the multi-slot request: 0 not asked, 1 asked for 5, 2 granted 5, 3
                                                     * asked for 3 (5 refused), 4 granted 3, 5 refused both */
+    uint8_t peer_slots, peer_rate;                 /* the slots the device lets our packets take (its LMP_max_slot; 5 until it
+                                                    * says), and its last LMP_preferred_rate byte (0: none): earbuds that pass
+                                                    * the sound on to each other cut their slots, and a 5-slot packet then runs
+                                                    * into their own schedule */
+    uint32_t mq_off;                               /* the bytes of the queue's first packet already sent: a device that lets us one slot
+                                                    * (peer_slots 1) takes it in DH1 pieces, an L2CAP start and then continuations */
     uint32_t mq_drop, mq_sent;                     /* audio packets dropped (the queue full), sent */
     uint32_t mq_hi, mq_busy;                       /* the queue's deepest this second; audio waiting with both TX
                                                     * buffers still held by the engine (its retransmissions) */
@@ -97,6 +104,7 @@ static void bp_mem_set(void *p)                    /* (the interrupts off: bp_me
     bp_mqp = (struct bp_mq_mem *)p;
     bti_ringp = p ? (struct bti_rx *)((uint8_t *)p + ((sizeof(struct bp_mq_mem) + 3u) / 4u * 4u)) : 0;
     bp_mq.r = bp_mq.w;                             /* (nothing queued from before) */
+    bp.mq_off = 0;
     bti_rr = bti_rw;
 }
 #else
@@ -111,7 +119,8 @@ static struct {
 static int bp_media_queue(const uint8_t *frame, uint32_t len)   /* 1 queued; 0 dropped whole (full, too long, no 5 slots) */
 {
     uint32_t i, k;
-    if ((bp.slots5 != 2u && bp.slots5 != 4u) || len > (bp.slots5 == 2u ? BP_MQB : 183u) || bp_mq.w - bp_mq.r >= BP_MQ ||
+    if ((bp.slots5 != 2u && bp.slots5 != 4u) || len > (bp.slots5 == 2u || bp.peer_slots == 1u ? BP_MQB : 183u) ||
+        bp_mq.w - bp_mq.r >= BP_MQ ||
         !BTI_MEM_HAVE) {
         bp.mq_drop++;
         return 0;
@@ -472,10 +481,15 @@ static void bp_queue_w(const uint8_t *pdu, uint32_t len, const char *why)
 /* an audio packet into every empty TX buffer (BR §5.5), DH5 / DH3 / DH1 by its length: IRQ 40 itself (bp_conn_rx, each
  * reception: the stream needs 172 DH5 a second and the main loop runs ~65 times, measured 2026-10-20 on the WH-1000XM4:
  * audio_sent 2,008, dropped 3,527 in 30 s), or the main loop with IRQ 40 held. Never ahead of the LMP / L2CAP queue */
+static uint32_t bp_media_turn(void)                /* the audio's turn for a TX buffer: nothing else queued, or a packet half out whose pieces
+                                                    * go first (no L2CAP PDU between them; an LMP one may: its own logical link) */
+{
+    return bp.txr == bp.txw || (bp.mq_off && bp.txllid[bp.txr % BP_TXQ] != 3u);
+}
 static void bp_tx_media(struct fm1_br_frame *f)
 {
     uint32_t i, k, n, pass;
-    for (pass = 0; pass < 2u && BTI_MEM_HAVE && bp_mq.r != bp_mq.w && bp.txr == bp.txw; pass++) {
+    for (pass = 0; pass < 2u && BTI_MEM_HAVE && bp_mq.r != bp_mq.w && bp_media_turn(); pass++) {
         i = f->txtog & 1u;
         if (!(f->txbufcntl[i] & 1u))
             i ^= 1u;
@@ -484,17 +498,22 @@ static void bp_tx_media(struct fm1_br_frame *f)
             return;                                /* (both buffers full: the engine has two to send) */
         }
         {
-            uint32_t q = bp_mq.r % BP_MQ, t;
-            n = BP_MQ_N(q);
+            uint32_t q = bp_mq.r % BP_MQ, off = bp.mq_off;
+            struct bp_piece pc = bp_piece_next(BP_MQ_N(q), off, bp.peer_slots);   /* (the device lets us one slot: DH1 pieces) */
+            n = pc.n;
             for (k = 0; k < n; k++)
-                bti_tab[(i ? BP_OFF_TXB1 : BP_OFF_TXB0) + k] = BP_MQ_D(q)[k];
-            t = n > 183u ? 15u : n > 27u ? 11u : 4u;   /* DH5, DH3, DH1 (BR §5.2) */
+                bti_tab[(i ? BP_OFF_TXB1 : BP_OFF_TXB0) + k] = BP_MQ_D(q)[off + k];
             f->txptr[i] = (uint16_t)(i ? BP_OFF_TXB1 : BP_OFF_TXB0);
-            f->txphdr[i] = (uint16_t)(n << 3 | 1u << 2 | 2u);   /* LLID 2: an L2CAP start, whole; FLOW 1 */
-            f->linkcntl[i] = (uint16_t)((f->linkcntl[i] & 0x80B0u) | t | 0x4000u);
+            f->txphdr[i] = (uint16_t)(n << 3 | 1u << 2 | pc.llid);   /* LLID 2: an L2CAP start, 1: its continuation; FLOW 1 */
+            f->linkcntl[i] = (uint16_t)((f->linkcntl[i] & 0x80B0u) | pc.type | 0x4000u);
             f->txbufcntl[i] &= (uint8_t)~1u;
-            bp_mq.r++;
-            bp.mq_sent++;
+            if (pc.done) {                             /* (the whole packet is out) */
+                bp.mq_off = 0;
+                bp_mq.r++;
+                bp.mq_sent++;
+            } else {
+                bp.mq_off = pc.next;
+            }
         }
     }
 }
@@ -505,7 +524,7 @@ static void bp_tx_service(void)                    /* the main loop: a PDU into 
     uint32_t i, k, n;
     if (bti.mode != BTI_M_CONN)
         return;
-    if (bp.txr == bp.txw) {
+    if (bp_media_turn()) {
         if (bp_mq.r == bp_mq.w)
             return;
         fm1_br_irqs_hold(1);
@@ -568,6 +587,14 @@ static void bp_lmp_in(const struct bti_rx *r)
     if (op == BTL_FEATURES_RES && r->len >= 9u)
         for (i = 0; i < 8u; i++)
             bp.feat[i] = r->data[1u + i];          /* (kept: AFH only to an AFH capable slave, bp_afh_assess) */
+    if (op == BTL_MAX_SLOT && r->len > 1u) {       /* the device limits the slots of what we send (Part C 4.1.10; no answer) */
+        bp.peer_slots = r->data[1] >= 5u ? 5u : r->data[1] >= 3u ? 3u : 1u;
+        con_puts("btpage: the device allows");
+        bti_kv(" slots=", bp.peer_slots);
+        con_puts("\r\n");
+    }
+    if (op == BTL_PREFERRED_RATE && r->len > 1u)
+        bp.peer_rate = r->data[1] ? r->data[1] : 0x80u;   /* (shown, not followed: the sizes are the audio's own) */
     if (op == BTL_ACCEPTED && r->len > 1u && r->data[1] == BTL_HOST_CONN_REQ && !bp.setup_out) {
         bp.setup_out = 1;
         n = btl_setup_complete(out);
@@ -939,6 +966,8 @@ static int bp_start(const uint8_t addr[6], uint32_t slots)
     bp.page_ids = bp.fhs_acked = bp.good = bp.bad = bp.nobuf = bp.acl = bp.lmp_in = bp.lmp_out = 0;
     bp.setup_out = bp.setup_in = bp.stopping = 0;
     bp.slots5 = 0;
+    bp.peer_slots = 5;
+    bp.peer_rate = 0;
     bp.name_done = 0;
     bp.mq_drop = bp.mq_sent = bp.mq_hi = bp.mq_busy = bp.flow0 = bp.rs_sum = bp.rs_n = bp.rs_max = 0;
     bp.rs_min = 0xFFFFFFFFu;
@@ -957,6 +986,7 @@ static int bp_start(const uint8_t addr[6], uint32_t slots)
     bp.afh_pending = 0;
     bp.afh_switches = 0;
     bp_mq.r = bp_mq.w;                            /* (a new link: no audio queued) */
+    bp.mq_off = 0;
     ba_reset();
     bp.txw = bp.txr = 0;
     for (i = 0; i < 16u; i++)

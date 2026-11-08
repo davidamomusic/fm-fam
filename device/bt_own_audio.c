@@ -285,6 +285,37 @@ int plat_bta_lost(void)                           /* (PLAT_BTA_LOST_*: bt_audio.
     return bta_lost() ? (int)(w % 7u) : PLAT_BTA_LOST_NONE;
 }
 int plat_bta_timed_out(void) { return bta_state() == BTA_S_REFUSED && bta_gave_up(); }
+int plat_bta_quality(int tier)                    /* 0 HIGH, 1 MID, 2 LOW: from the next packet; -1: the tier in force */
+{
+    if (tier >= 0 && tier < (int)BA_NTIER)
+        ba_tier_set = (uint8_t)tier;
+    return ba_tier_set;
+}
+int plat_bta_link(uint32_t v[7])                  /* while it streams: what the radio did in the last second or so (the counts
+                                                   * are since the link began; the rates from two readings 1 s apart) */
+{
+    static uint32_t t0, g0, b0, d0, w0, s0, r[4];
+    uint32_t t = fm1_ms, dt = t - t0;
+    if (bta_state() != BTA_S_STREAMING) {
+        t0 = 0;
+        return 0;
+    }
+    if (!t0 || dt > 4000u || bp.good < g0 || bp.mq_sent < s0) {   /* (a new stream, or the first reading) */
+        t0 = t, g0 = bp.good, b0 = bp.bad, d0 = bp.mq_drop, w0 = bp.mq_busy, s0 = bp.mq_sent;
+        r[0] = r[1] = r[2] = r[3] = 0;
+    } else if (dt >= 1000u) {
+        r[0] = (bp.good - g0) * 1000u / dt;
+        r[1] = (bp.bad - b0) * 1000u / dt;
+        r[2] = (bp.mq_drop - d0) * 1000u / dt;
+        r[3] = (bp.mq_busy - w0) * 1000u / dt;
+        t0 = t, g0 = bp.good, b0 = bp.bad, d0 = bp.mq_drop, w0 = bp.mq_busy, s0 = bp.mq_sent;
+    }
+    v[0] = r[0], v[1] = r[1], v[2] = r[2], v[3] = r[3];       /* good, bad receptions, audio packets lost, waits a second */
+    v[4] = bp.slots5 == 2u ? (bp.peer_slots ? bp.peer_slots : 5u) : bp.slots5 == 4u ? 3u : 0u;   /* the slots our packets take */
+    v[5] = bp.peer_rate;                           /* the device's last LMP_preferred_rate byte (0: none) */
+    v[6] = ba_bpv;                                 /* the bitpool the encoder runs at (0: not started) */
+    return 1;
+}
 int32_t plat_bta_latency_us(void)
 {
     int32_t t = bta_lat_t();                      /* (TIMER4 ticks: bt_acl.c) */

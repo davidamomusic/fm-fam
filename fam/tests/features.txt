@@ -1,0 +1,80 @@
+# FM-FAM v0.8: the steps' locks, the ratchet, the kick keys, copy and paste, the song
+wait 400
+expect trigs 0
+# a lock: hold a step in SYNTH and turn a knob; the sound itself stays
+tap EDIT
+key w2 down
+wait 60
+spin K1 3
+key w2 up
+wait 60
+expect lk2 1
+expect lkv2 67
+expect syn0 64
+expect trig2 1
+# REC with the step held clears its locks
+key w2 down
+wait 60
+tap REC
+key w2 up
+wait 60
+expect lk2 0
+expect trig2 1
+# a tap toggles a step: off > trig > accent
+tap SEQ
+tapkey w1
+wait 60
+expect trig1 1
+tapkey w1
+wait 60
+expect trig1 2
+tapkey w1
+wait 60
+expect trig1 0
+# the kick's steps
+tap ARP
+tapkey w1
+wait 60
+expect ktrig1 1
+tapkey w1
+tapkey w1
+wait 60
+expect ktrig1 0
+# a ratchet of 4 on step 0: 4 trigs a bar become 7
+tap SEQ
+key w0 down
+wait 60
+spin K4 3
+key w0 up
+wait 60
+expect rat0 3
+tap PLAY
+wait 1900
+expect trigs 14
+tap PLAY
+wait 100
+# copy a pattern, paste it
+tap GLO
+spin K2 1
+tapkey w0
+spin K2 1
+tapkey w5
+wait 60
+expect pused5 1
+expect pused6 0
+# a song: slot 1 = pattern 6 (A06, the pasted one), slot 2 = pattern 1, then run
+tap GLO
+expect page 1
+spin K2 6
+spin ALGO 1
+spin K2 1
+spin K4 1
+expect song_on 1
+tap PLAY
+wait 200
+expect pat 5
+wait 1000
+expect pat 0
+tap PLAY
+wait 50
+expect running 0

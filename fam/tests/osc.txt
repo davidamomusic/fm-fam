@@ -1,0 +1,44 @@
+# FM-FAM v0.8: the 16 oscillator types one after the other (osc.wav, checked offline)
+wait 300
+tap ARP
+spin SELECT 3
+spin K3 -200
+expect kick6 0
+tap EDIT
+spin K1 -100
+expect syn0 0
+wav osc.wav
+tap PLAY
+wait 2100
+spin K1 4
+wait 2100
+spin K1 4
+wait 2100
+spin K1 4
+wait 2100
+spin K1 4
+wait 2100
+spin K1 4
+wait 2100
+spin K1 4
+wait 2100
+spin K1 4
+wait 2100
+spin K1 4
+wait 2100
+spin K1 4
+wait 2100
+spin K1 4
+wait 2100
+spin K1 4
+wait 2100
+spin K1 4
+wait 2100
+spin K1 4
+wait 2100
+spin K1 4
+wait 2100
+spin K1 4
+wait 2100
+wavstop
+tap PLAY
