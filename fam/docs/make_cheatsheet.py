@@ -9,7 +9,7 @@ import base64, html, os, subprocess, sys
 card_png, out_dir = sys.argv[1], sys.argv[2]
 os.makedirs(out_dir, exist_ok=True)
 
-VERSION = "0.20"
+VERSION = "0.2.1"
 DESCRIPTION = ("DFAM style 16-step sequencer and a drum synth for the FM-1. It has two oscillators with 16 wave "
                "types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects "
                "chain, random pages, scales, presets and projects. Bluetooth audio is experimental.")
@@ -77,6 +77,7 @@ SECTIONS = [
          "BELL); filter and noise (LP4, LP2, BP, HP); envelopes (`ENV` jumps here); mixer (levels, sync, volume); "
          "modulation (envelope to VCO 1, VCO 2 and filter, accent); output (attack, drive, glide, tune). 16 presets."),
         ("Switches (SYNC, SLOPE ...)", "A switch changes at the first click: right is ON, left is OFF."),
+        ("Choices (waves, filter type, delay time, slices)", "Each click moves to the next choice."),
         ("`LFO` (patch bay)",
          "Eight virtual cables: source to target, depth -100 to +100, connected or not. Step keys work here too. "
          "7 presets."),

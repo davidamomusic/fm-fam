@@ -73,6 +73,14 @@ release (`fam/release.sh` puts it there), in a commit before or after the releas
 `node fam/tests/install_page_test.mjs` (the list of releases, the packages kept, what is refused, the bar) and
 `node fam/tests/install_browser_test.mjs` (headless Chromium, with GitHub and the update protocol simulated).
 
+Choices and columns (0.2.1): a choice (a wave, a filter type, a delay time, a slice) is kept as 0..127 and cut in equal parts; a click of its
+encoder moves to the next part (`choice_step()` in `fam/app.c`), and the lock of a held step does the same. The strip of steps and the columns
+of SEQ and of the KICK sequence start at the same x (`col_x0()`). Tested by `fam/tests/v021a.txt` (the choices) and by `fam/tests/v021b.txt` with
+`python3 fam/tests/align_check.py DIRECTORY` (the picture, at seven lengths).
+
+Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; the package is `fm-fam-0.2.1.fwsc` and the tag `v0.2.1`); the
+releases before it are 0.19 and 0.20.
+
 ## Identity and package
 
 The identity is `FM-1_111` in every release; `fam/release.sh` sets it. The same text is in the package and in the
