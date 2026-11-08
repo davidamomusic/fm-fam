@@ -47,7 +47,8 @@ Every script in `fam/tests` is a test (keys, knobs, screens, saving across a reb
 
 `fam/docs` has what the main README shows: the screenshots (`fam/tests/readme.txt` takes them in the simulator and
 `fam/docs/make_screens.py` turns them into `fam/docs/screens`) and the cheat sheet (`fam/docs/make_cheatsheet.py` builds
-the PDF and the web page; it needs Chrome).
+the PDF and the web page; it needs Chrome). `fam/docs/FM-FAM-mirror.html` is the screen mirror page that
+`tools/make_site.py` fills in for FM-FAM (`tool_pages` on `fam`, from `web/mirror/index.html`; two comment lines differ).
 
 ## Identity and package
 
