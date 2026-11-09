@@ -11,6 +11,17 @@ A drum synth and 16-step sequencer firmware for the M-VAVE FM-1, built on [fm1-b
   and projects.
 - Bluetooth audio and Bluetooth MIDI on fm1-base's own stack (experimental), and screen mirroring over USB.
 
+> [!WARNING]
+> **FM-FAM is beta software. Use it at your own risk.** It is a community project made by one person, not by M-VAVE. It can have bugs
+> and fail: it can behave wrongly, lose what you saved, or leave the FM-1 not starting until you install a firmware again. Installing
+> it, and the screen mirror's installer and its restore of projects and backups, all write to the FM-1's flash memory. Before you do,
+> save what matters (a backup from the screen mirror), and do not unplug the USB cable or switch the FM-1 off while it writes. To
+> leave FM-FAM, install another firmware package with The Firmware Hub or M-UPGRADE.
+>
+> FM-FAM is provided "as is", without warranty of any kind, as the MPL-2.0 licence says (sections 6 and 7 of the [licence](../LICENSE)).
+> The author is not responsible for any damage to your FM-1, your data or anything connected to it, and does not promise support.
+> By installing or using FM-FAM you accept this.
+
 Everything on the screen is in English. The manual is built into the firmware (HOME pages 7 to 10).
 
 ## Install
@@ -94,3 +105,6 @@ repository builds at its tag.
 
 MPL-2.0 (`LICENSE`, and an SPDX line in every source file). The parts of fm1-base keep the licences listed in
 fm1-base's `LICENSING.md`.
+
+The licence says the software is provided "as is", without warranty (section 6), and limits the liability of its authors (section 7).
+FM-FAM is beta software: see the notice at the top of this page.

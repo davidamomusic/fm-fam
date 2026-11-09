@@ -6,6 +6,17 @@
 
 The screen mirror shows the screen and the panel of an FM-1 running FM-FAM live on your computer, over USB, and lets you play the panel from it. It also saves a project to a file on your computer and puts one back into any of the four slots, or saves and loads everything the FM-1 keeps, and installs a version of FM-FAM from GitHub or from a file. Open it in Chrome or Edge.
 
+> [!WARNING]
+> **FM-FAM is beta software. Use it at your own risk.** It is a community project made by one person, not by M-VAVE. It can have bugs
+> and fail: it can behave wrongly, lose what you saved, or leave the FM-1 not starting until you install a firmware again. Installing
+> it, and the screen mirror's installer and its restore of projects and backups, all write to the FM-1's flash memory. Before you do,
+> save what matters (a backup from the screen mirror), and do not unplug the USB cable or switch the FM-1 off while it writes. To
+> leave FM-FAM, install another firmware package with The Firmware Hub or M-UPGRADE.
+>
+> FM-FAM is provided "as is", without warranty of any kind, as the MPL-2.0 licence says (sections 6 and 7 of the [licence](LICENSE)).
+> The author is not responsible for any damage to your FM-1, your data or anything connected to it, and does not promise support.
+> By installing or using FM-FAM you accept this.
+
 ## Screenshots
 
 The pages of every mode, as drawn by the host simulator, which runs the same app code as the FM-1 (the screen is 240x240). 

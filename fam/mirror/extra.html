@@ -24,7 +24,26 @@
 .projects .chip.now { border-color: var(--teal); color: var(--ink); }
 .projects .meta { flex: 1 1 14rem; min-width: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
 .projects input[type="file"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); }
+.beta { margin: 1rem 0 0; padding: .8rem 1rem .9rem; background: var(--card); border: 1px solid var(--accent); border-left-width: 6px; border-radius: 12px; }
+.beta h2 { font: 600 1.25rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .3rem; }
+.beta p { margin: .35rem 0; max-width: 78ch; }
+.beta ul { margin: .35rem 0; padding-left: 1.2rem; max-width: 78ch; }
+.beta li { margin: .2rem 0; }
 </style>
+<section class="beta" id="beta" aria-labelledby="betaH">
+  <h2 id="betaH">Beta software: use it at your own risk</h2>
+  <p>{{NAME}} is a beta, made by one person for the M-VAVE FM-1 and not by M-VAVE. It can have bugs and fail: it can behave
+    wrongly, lose what you saved, or leave the FM-1 not starting until you install a firmware again. This page writes to the
+    FM-1 (the installer, the project and backup restore), so the same applies to it.</p>
+  <ul>
+    <li>Save everything to a file before you install or restore, and keep that file.</li>
+    <li>Do not unplug the USB cable or switch the FM-1 off while it writes. If an update is cut, run it again.</li>
+    <li>To leave {{NAME}}, install another firmware with The Firmware Hub or M-UPGRADE.</li>
+  </ul>
+  <p>{{NAME}} is provided &ldquo;as is&rdquo;, without warranty of any kind, as the MPL-2.0 licence says (sections 6 and 7). The
+    author is not responsible for any damage to your FM-1, your data or anything connected to it, and does not give support
+    for it. By using {{NAME}} and this page you accept that.</p>
+</section>
 <section class="projects" id="projects" aria-labelledby="projectsH">
   <h2 id="projectsH">Projects and backup</h2>
   <p>Save a project from the FM-1 to a file on this computer, or put a project file back into any of its four slots.

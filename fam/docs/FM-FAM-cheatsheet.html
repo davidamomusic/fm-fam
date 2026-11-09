@@ -21,6 +21,8 @@ h1 { margin:4px 0 2px; font-size:32px; line-height:1.15; }
   color:var(--acc); text-decoration:none; font-weight:600; font-size:14px; }
 .btns a.solid { background:var(--acc); color:#06210f; }
 .legend { color:var(--dim); font-size:13px; margin:0 0 18px; }
+.beta { margin:0 0 16px; padding:9px 14px; border:1px solid var(--line); border-left:5px solid var(--acc); border-radius:8px; background:var(--panel); font-size:13.5px; }
+.beta b { color:var(--acc); }
 .cols { columns:2 480px; column-gap:26px; }
 section { break-inside:avoid; margin:0 0 18px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:4px 14px 8px; }
 h2 { font-size:15px; margin:10px 0 6px; color:var(--acc); letter-spacing:.02em; }
@@ -40,6 +42,7 @@ footer a { color:var(--acc); }
   .hd { gap:12px; margin-bottom:5px; } .hd img { width:27mm; height:27mm; border-radius:4px; }
   h1 { font-size:17pt; margin:2px 0 1px; } .ver { margin-bottom:4px; } .sum { max-width:none; margin-bottom:4px; }
   .btns { display:none; } .legend { margin-bottom:5px; font-size:7.4pt; }
+  .beta { margin-bottom:2.2mm; padding:1mm 2.6mm; font-size:7.4pt; line-height:1.25; border-radius:3px; }
   .cols { columns:2; column-gap:4.5mm; }
   section { margin:0 0 2.2mm; padding:0.6mm 2.6mm 1mm; border-radius:4px; }
   h2 { font-size:9.4pt; margin:1.4mm 0 0.6mm; }
@@ -66,6 +69,7 @@ footer a { color:var(--acc); }
     </div>
   </div>
 </div>
+<p class="beta"><b>FM-FAM is beta software.</b> Use it at your own risk. It can have bugs and fail (wrong behaviour, lost data, an FM-1 that does not start until you install a firmware again), and installing it or restoring a backup writes to the FM-1&#x27;s flash. Save what matters first and never unplug the USB cable while it writes. It is provided “as is”, without warranty (MPL-2.0, sections 6 and 7); the author is not responsible for any damage to your FM-1, your data or anything connected to it.</p>
 <p class="legend"><code>BUTTON</code> a button, key or encoder of the FM-1 &nbsp;&middot;&nbsp; tap, hold, turn &nbsp;&middot;&nbsp;
 <code>A</code> + <code>B</code> hold A while you use B &nbsp;&middot;&nbsp; K1-K4 are the four knobs, in the order of the screen footer &nbsp;&middot;&nbsp;
 the white keys are the steps</p>

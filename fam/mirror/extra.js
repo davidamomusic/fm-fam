@@ -6,6 +6,12 @@
 {{OTA_JS}}
 // the ports are one tool's at a time: a backup, a project, an update (each tool's own update() is hooked in)
 const TOOLS = { on: false, hooks: [], set(v) { this.on = v; this.hooks.forEach((f) => f()); } };
+// the beta notice (extra.html, #beta) goes to the top of the page, under the title; it also ends every question that writes to the FM-1
+const BETA_NOTE = "{{NAME}} is beta software and can fail: you do this at your own risk.";
+{
+  const beta = document.getElementById("beta"), head = document.querySelector("main > header");
+  if (beta && head) head.after(beta);
+}
 
 // --- projects: begin (fam/tests/projects_page_test.mjs runs this part in Node, after the backup protocol above)
 // A project is four of the backup's parts: its sound and name (app.c prj_t), then the patterns of banks A, B and C. Slot p
@@ -288,7 +294,7 @@ fileProject.addEventListener("change", () => {
     const proj = PJ.readProjectFile(new Uint8Array(await f.arrayBuffer()));
     const note = proj.appVersion && proj.appVersion !== PJ.APP ? ` It was saved with ${PB.NAME} ${proj.appVersion}; this page is for ${PJ.APP}.` : "";
     const yes = await confirmAsk(`Replace project ${p + 1} with "${proj.name}" from this file? What project ${p + 1} holds now is lost.${note} ` +
-      `Stop the sequencer first. The FM-1 asks you to confirm with SEL.`, `Replace project ${p + 1}`);
+      `Stop the sequencer first. The FM-1 asks you to confirm with SEL. ${BETA_NOTE}`, `Replace project ${p + 1}`);
     if (!yes) { pjSay("Cancelled. Nothing was changed."); return; }
     const d = await readDevice();                                // the merge is made on what the FM-1 holds now
     if (d.flags & 1) { pjSay(`${PB.NAME} is playing. Press PLAY on the FM-1 to stop it, then try again. Nothing was changed.`, "err"); return; }
@@ -306,7 +312,7 @@ fileAll.addEventListener("change", () => {
     const image = new Uint8Array(await f.arrayBuffer());
     PB.parse(image);                                             // (checked whole: a bad file is never sent)
     const yes = await confirmAsk(`Load everything from "${f.name}"? It replaces all that ${PB.NAME} has saved in the FM-1: the sound, the patterns, ` +
-      `the presets and the four projects. Stop the sequencer first. The FM-1 asks you to confirm with SEL.`, "Load everything");
+      `the presets and the four projects. Stop the sequencer first. The FM-1 asks you to confirm with SEL. ${BETA_NOTE}`, "Load everything");
     if (!yes) { pjSay("Cancelled. Nothing was changed."); return; }
     if (!(await sendImage(image))) return;
     pjSay("Everything is loaded.");
@@ -478,7 +484,7 @@ async function install(pkg) {
   say(`Done: the FM-1 now runs ${now}. Its screen comes back in a moment.`);
 }
 const ASK = (what) => `Install ${what} on the FM-1? The sound and the screen stop for about a minute while it writes: do not unplug the USB cable or switch the FM-1 off meanwhile. ` +
-  `What {{NAME}} has saved is not touched.`;
+  `What {{NAME}} has saved is not touched, but save everything first if it matters. ${BETA_NOTE}`;
 
 checkBtn.addEventListener("click", () => exclusive(async () => {
   say("Asking GitHub for the versions…", "wait");
