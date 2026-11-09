@@ -1045,7 +1045,7 @@ typedef struct {
     struct plat_ble_rec r;
 } btst_t;
 static btst_t bts;
-#define BTQ ((uint32_t)bts.quality & 3u)   /* the stream's quality (bit 7 of the byte is the MIDI sync) */
+#define BT_QUAL ((uint32_t)bts.quality & 3u)   /* the stream's quality (bit 7 of the byte is the MIDI sync) */
 static uint8_t bts_dirty;
 static uint8_t bt_up, bt_scanned;        /* the audio radio has been asked to start; a scan was asked for since it was switched on */
 static uint32_t bts_t;
@@ -2636,7 +2636,7 @@ static void bt_start(void)               /* the audio radio, once: at power-on i
 {
     if (bts.on && !bt_up) {
         bt_up = 1;
-        (void)plat_bta_quality(BTQ);
+        (void)plat_bta_quality(BT_QUAL);
         plat_bta_on(1);
     }
 }
@@ -2649,7 +2649,7 @@ static void bt_set(int on)
     bts_t = plat_ms();
     if (on) {
         plat_ble_enable(1);
-        (void)plat_bta_quality(BTQ);
+        (void)plat_bta_quality(BT_QUAL);
         bt_start();
         app_say("BLUETOOTH", "ON");
     } else {
@@ -2701,11 +2701,11 @@ static void bt_do(void)                  /* K4: the action on the device in the 
         }
         break;
     case BA_QUALITY:                     /* HIGH > MID > LOW > HIGH: fewer bits and less of the air for the stream */
-        bts.quality = (uint8_t)((bts.quality & 0x80u) | ((BTQ + 1u) % 3u));
-        (void)plat_bta_quality(BTQ);
+        bts.quality = (uint8_t)((bts.quality & 0x80u) | ((BT_QUAL + 1u) % 3u));
+        (void)plat_bta_quality(BT_QUAL);
         bts_dirty = 1;
         bts_t = plat_ms();
-        app_say("BT QUALITY", BTQ == 0 ? "HIGH 289K" : BTQ == 1 ? "MID 212K" : "LOW 174K");
+        app_say("BT QUALITY", BT_QUAL == 0 ? "HIGH 289K" : BT_QUAL == 1 ? "MID 212K" : "LOW 174K");
         break;
     case BA_MIDI:                        /* Bluetooth MIDI's advertising, which shares the air with the sound */
         bts.midioff = (uint8_t)!bts.midioff;
@@ -4425,7 +4425,7 @@ static void vis_bt(void)                 /* BLUETOOTH: its state, and the device
         char nb[12];
         int32_t us = plat_bta_latency_us();
         lv[0] = 0;
-        text_cat(lv, BT_Q[BTQ]);
+        text_cat(lv, BT_Q[BT_QUAL]);
         text_cat(lv, bts.midioff ? " MIDI OFF  CPU " : " MIDI ON  CPU ");
         int_text((int32_t)plat_cpu_pct(), nb);
         text_cat(lv, nb);
@@ -5094,7 +5094,7 @@ int app_expect(const char *what, int *got)
         bt_list();                       /* the Bluetooth page: bton, btsel, btact, btn (devices listed), btkn (kept), btstate, btdirty; btname: the first letter of the selected one */
         *got = !strcmp(what, "bton") ? bts.on : !strcmp(what, "btsel") ? ui.bt_sel : !strcmp(what, "btact") ? ui.bt_act :
                !strcmp(what, "btn") ? bt.n : !strcmp(what, "btkn") ? bt.kn : !strcmp(what, "btstate") ? plat_bta_state() :
-               !strcmp(what, "btdirty") ? bts_dirty : !strcmp(what, "btq") ? (int)BTQ : !strcmp(what, "btqp") ? plat_bta_quality(-1) :
+               !strcmp(what, "btdirty") ? bts_dirty : !strcmp(what, "btq") ? (int)BT_QUAL : !strcmp(what, "btqp") ? plat_bta_quality(-1) :
                !strcmp(what, "btmidioff") ? bts.midioff : bt.n ? bt.name[ui.bt_sel][0] : 0;
         return 1;
     }
