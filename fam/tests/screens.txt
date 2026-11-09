@@ -97,7 +97,7 @@ wait 80
 shot s_scale2.png
 spin SELECT -2
 wait 60
-tap HOME
+tap SAVE
 wait 80
 shot s_home1.png
 spin SELECT 1

@@ -553,6 +553,21 @@ static struct {
     volatile uint32_t ktrigs;
 } sq;
 
+/* MIDI sync (PATTERNS page 6): with it on, the clock that comes in (USB, the MIDI jack, Bluetooth) plays the steps, a 16th
+ * every six clocks, and its start, continue and stop run the sequencer. Without a clock for half a second the tempo is the
+ * FM-1's own again. The render (the audio interrupt) owns all of it but `on`. */
+#define XS_WAIT 1.0e9f                   /* sq.left while the next step waits for the clock */
+#define XS_WIN 96                        /* the tempo is measured over this many clocks (a bar), once twelve have come */
+static struct {
+    volatile uint8_t on;                 /* the setting (kept with Bluetooth's, in OBJ_BT) */
+    volatile uint8_t live;               /* a clock is coming in */
+    volatile uint16_t bpm;               /* its tempo, 0 not measured yet */
+    uint8_t ck;                          /* clocks since the last 16th, 0..5 */
+    uint8_t n, w;                        /* clock times kept, and where the next one goes */
+    uint32_t now, last;                  /* samples rendered; when the last clock came */
+    uint32_t t[XS_WIN];
+} xs;
+
 static void tempo_set(void)
 {
     sq.len = 44100.0f * 60.0f / ((float)sd.bpm * 4.0f);
@@ -734,7 +749,7 @@ static void seq_rewind(void)
     sq.kstep = (uint8_t)(pats[sq.cur].klen - 1u);
     sq.bar = (uint32_t)-1;               /* the first bar is bar 0 once the step wraps */
     sq.kbar = (uint32_t)-1;
-    sq.left = 0.0f;
+    sq.left = xs.on && xs.live ? XS_WAIT : 0.0f;     /* (a clock coming in: the first step at its next 16th) */
     sq.rn = 0;
     sq.kn = 0;
 }
@@ -1030,6 +1045,7 @@ typedef struct {
     struct plat_ble_rec r;
 } btst_t;
 static btst_t bts;
+#define BTQ ((uint32_t)bts.quality & 3u)   /* the stream's quality (bit 7 of the byte is the MIDI sync) */
 static uint8_t bts_dirty;
 static uint8_t bt_up, bt_scanned;        /* the audio radio has been asked to start; a scan was asked for since it was switched on */
 static uint32_t bts_t;
@@ -1061,8 +1077,9 @@ static void bt_load(void)
         bts.on = 0;
     if (bts.has > 1u)
         bts.has = 0;
-    if (bts.quality > 2u)
-        bts.quality = 0;
+    if ((bts.quality & 0x7Fu) > 2u)       /* (bit 7: the MIDI sync, PATTERNS page 6) */
+        bts.quality &= 0x80u;
+    xs.on = (uint8_t)(bts.quality >> 7);
     if (bts.midioff > 1u)
         bts.midioff = 0;
     bts_dirty = 0;
@@ -1253,12 +1270,72 @@ static int prj_clear(int p)
 }
 
 /* --------------------------------------------------------------- audio --- */
+static void sync_off(void)               /* no clock any more (or the setting off): the FM-1's own tempo, and a step that waited plays */
+{
+    xs.live = 0;
+    xs.bpm = 0;
+    xs.n = xs.w = xs.ck = 0;
+    if (sq.left > XS_WAIT * 0.5f)
+        sq.left = 0.0f;
+    tempo_set();
+}
+static void sync_rt(uint32_t b)          /* a real-time byte, with the sync on */
+{
+    if (b == 0xF8u) {
+        if (xs.live && xs.n) {           /* the tempo: a whole number of BPM, changed only when the measure moves away from it */
+            uint32_t k = xs.n < XS_WIN ? xs.n : XS_WIN, span = xs.now - xs.t[(xs.w + XS_WIN - k) % XS_WIN];
+            if (k >= 12u && span) {
+                float est = 44100.0f * 60.0f / 24.0f * (float)k / (float)span, d = est - (float)xs.bpm;
+                if (d > 0.7f || d < -0.7f) {
+                    int32_t v = (int32_t)(est + 0.5f);
+                    xs.bpm = (uint16_t)(v < 20 ? 20 : v > 400 ? 400 : v);
+                    sq.len = 44100.0f * 60.0f / ((float)xs.bpm * 4.0f);
+                    dsp_tempo(sq.len);
+                }
+            }
+        }
+        if (!xs.live) {
+            xs.live = 1;
+            xs.n = xs.w = 0;
+            if (sq.running && sq.left < XS_WAIT * 0.5f)      /* running on its own tempo: from here on the clock's steps */
+                sq.left = XS_WAIT;
+        }
+        xs.t[xs.w] = xs.now;
+        xs.w = (uint8_t)((xs.w + 1u) % XS_WIN);
+        if (xs.n < XS_WIN)
+            xs.n++;
+        xs.last = xs.now;
+        if (xs.ck == 0u && sq.running) { /* a 16th: the next step, an odd one late by the swing */
+            uint32_t s = (uint32_t)sq.step + 1u;
+            if (s >= pats[sq.cur].len)
+                s = 0;
+            sq.left = (s & 1u) ? sq.len * (float)pats[sq.cur].swing * (0.33f / 127.0f) : 0.0f;
+        }
+        xs.ck = (uint8_t)((xs.ck + 1u) % 6u);
+    } else if (b == 0xFAu) {             /* start: from the first step, at the next clock */
+        xs.ck = 0;
+        seq_start();
+        sq.left = XS_WAIT;
+    } else if (b == 0xFBu) {             /* continue: where it stopped */
+        if (!sq.running) {
+            sq.running = 1;
+            sq.left = XS_WAIT;
+        }
+    } else if (b == 0xFCu) {
+        seq_stop();
+    }
+}
 static void midi_in(void)
 {
     uint32_t pkt;
     int port;
     while (plat_midi_in(&pkt, &port)) {
         uint32_t st = (pkt >> 8) & 0xF0u, d1 = (pkt >> 16) & 0x7Fu, d2 = pkt >> 24;
+        if (((pkt >> 8) & 0xFFu) >= 0xF8u) {
+            if (xs.on)
+                sync_rt((pkt >> 8) & 0xFFu);
+            continue;
+        }
         if (st == 0x90u && d2) {
             if (d1 == 36u) {
                 dsp_kick_trig((float)d2 * (1.0f / 127.0f), d2 > 110u);
@@ -1276,13 +1353,16 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     float gain = (float)master_q12 / 4096.0f * 8300000.0f;
     uint32_t done = 0;
     midi_in();
+    if (xs.live && (!xs.on || xs.now - xs.last > 22050u))    /* half a second without a clock */
+        sync_off();
+    xs.now += n;
     while (done < n) {
         uint32_t run = n - done;
         if (sq.running) {
             float lim;
             while (sq.left <= 0.0f) {
                 seq_step();
-                sq.left += sq.dur;
+                sq.left = xs.live ? XS_WAIT : sq.left + sq.dur;      /* (the clock's steps: the next one when it says) */
             }
             while (sq.rn && sq.rleft <= 0.0f) {
                 ratchet_hit();
@@ -1369,7 +1449,7 @@ void app_backup_restored(void)           /* the flash holds the restored set: lo
 /* The screen: a header (mode, page, preset, tempo), a strip of steps, the picture of the page, and a footer of four
  * quadrants, one for each of the knobs K1..K4. */
 enum { M_SEQ, M_SYN, M_PATCH, M_KICK, M_FX, M_PATT, M_RAND, M_SCALE, M_HOME, NMODE };
-static const uint8_t NPAGE[NMODE] = {3, 6, 1, 5, 7, 5, NRP, 2, 10};
+static const uint8_t NPAGE[NMODE] = {3, 6, 1, 5, 7, 6, NRP, 2, 10};
 enum { F_NUM, F_SEMI, F_WAV16, F_WAV6, F_MODE, F_SW, F_TIME, F_NOTE, F_SCL, F_OCT, F_TRN, F_FINE, F_PCT, F_SPREAD, F_SLOPE, F_SLICE, F_ONOFF, F_SPEED };
 static const char *const SRC_NAME[NSRC] = {"NONE", "SEQP", "SEQV", "VEG", "FEG", "AEG", "S&H", "KEG"};
 static const char *const SRC_LONG[NSRC] = {"NONE", "SEQ PITCH", "SEQ VELOC", "VCO ENV", "VCF ENV", "VCA ENV", "S&H NOISE", "KICK ENV"};
@@ -1386,7 +1466,7 @@ static const char *const MODE_NAME[NMODE] = {"SEQ", "SYNTH", "PATCH", "KICK", "F
 static const char *const ACT_NAME[4] = {"LOAD", "SAVE", "RENAME", "CLEAR"};
 static const char *const KIND_NAME[NPK] = {"SYNTH", "KICK", "FX", "PATCH", "SCALE"};
 static const char *const HOME_TITLE[10] = {"PROJECTS", "SYNTH PRESETS", "KICK PRESETS", "FX PRESETS", "PATCH PRESETS", "SCALE PRESETS", "BUTTONS", "STEPS AND KEYS", "KNOBS AND FX", "SOUND"};
-static const char *const PATT_TITLE[5] = {"PATTERNS", "SONG", "PATTERN SOUND 1", "PATTERN SOUND 2", "BLUETOOTH"};
+static const char *const PATT_TITLE[6] = {"PATTERNS", "SONG", "PATTERN SOUND 1", "PATTERN SOUND 2", "HEADPHONES AND MIDI", "CLOCK SYNC"};
 static const char *const SEQ_TITLE[3] = {"STEP EDIT", "STEP AND PATTERN", "TEMPO"};
 static const char CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-";
 #define NCHARS 38
@@ -1442,7 +1522,7 @@ static const row_t SYN_ROWS[] = {
 };
 static const row_t KICK_ROWS[] = {
     {"PITCH AND DECAY", {KR("TUNE", F_NUM, kick_p[K_TUN], 14, 42), KR("SWEEP", F_NUM, kick_p[K_SWP], 15, 120), KR("PITCH DEC", F_NUM, kick_p[K_PDC], 15, 60), KR("AMP DEC", F_NUM, kick_p[K_ADC], 35, 85)}, 4},
-    {"TONE", {KR("CLICK", F_NUM, kick_p[K_CLK], 0, 70), KZ("DRIVE", F_NUM, kick_p[K_DRV], 8, 105, 40), KR("LEVEL", F_NUM, kick_p[K_LVL], 100, 110), KD("WAVE", F_WAV6, kick_p[K_WAV], DK_KWAV)}, 4},
+    {"TONE", {KR("CLICK", F_NUM, kick_p[K_CLK], 0, 9), KZ("DRIVE", F_NUM, kick_p[K_DRV], 8, 105, 40), KR("LEVEL", F_NUM, kick_p[K_LVL], 100, 110), KD("WAVE", F_WAV6, kick_p[K_WAV], DK_KWAV)}, 4},
     {"FM AND NOISE", {KZ("FM AMT", F_NUM, kick_p[K_FMA], 5, 60, 70), KN("FM RATIO", F_NUM, kick_p[K_FMR]), KZ("NOISE", F_NUM, kick_p[K_NSE], 5, 40, 70), KN("TONE", F_NUM, kick_p[K_TON])}, 4},
     {"KICK SEQUENCE", {{0}}, 0},
 };
@@ -2238,29 +2318,17 @@ static void on_button(uint32_t b)
     switch (b) {
     case B_SEQ: mode_key(M_SEQ, 0xFFu); break;
     case B_EDIT: mode_key(M_SYN, 0xFFu); break;
-    case B_ENV: mode_key(M_SYN, 2); break;       /* the quick way to the envelopes; in SYNTH it is a page key like the rest */
+    case B_ENV: break;                           /* (does nothing for now) */
     case B_LFO: mode_key(M_PATCH, 0xFFu); break;
     case B_FX: mode_key(M_FX, 0xFFu); break;
     case B_ARP: mode_key(M_KICK, 0xFFu); break;
     case B_SEL: mode_key(M_SCALE, 0xFFu); break;
-    case B_HOME: mode_key(M_HOME, 0xFFu); break;
+    case B_HOME: break;                          /* (does nothing for now: SAVE opens HOME) */
     case B_GLO: mode_key(M_PATT, 0xFFu); break;
     case B_PLAY:
         ui.play_t = plat_ms();
         break;
-    case B_SAVE:
-        if (bk_hold) {
-            app_say("BACKUP RUNNING", "SAVE AGAIN");
-            break;
-        }
-        lib_commit();
-        if (store_all() == 0) {
-            dirty = 0;
-            app_say("SAVED", "");
-        } else {
-            app_say("SAVE FAILED", "");
-        }
-        break;
+    case B_SAVE: mode_key(M_HOME, 0xFFu); break; /* SAVE opens HOME: the projects and presets (the autosave keeps the rest) */
     default:
         break;
     }
@@ -2307,6 +2375,10 @@ static void on_algo(int32_t e)           /* ALGORITHM: to move inside a page (el
     case M_PATT:
         if (pg() == 4u) {
             bt_move(e);
+            break;
+        }
+        if (pg() == 5u) {
+            bpm_add(e);
             break;
         }
         if (pg() == 1)
@@ -2564,7 +2636,7 @@ static void bt_start(void)               /* the audio radio, once: at power-on i
 {
     if (bts.on && !bt_up) {
         bt_up = 1;
-        (void)plat_bta_quality(bts.quality);
+        (void)plat_bta_quality(BTQ);
         plat_bta_on(1);
     }
 }
@@ -2577,7 +2649,7 @@ static void bt_set(int on)
     bts_t = plat_ms();
     if (on) {
         plat_ble_enable(1);
-        (void)plat_bta_quality(bts.quality);
+        (void)plat_bta_quality(BTQ);
         bt_start();
         app_say("BLUETOOTH", "ON");
     } else {
@@ -2629,11 +2701,11 @@ static void bt_do(void)                  /* K4: the action on the device in the 
         }
         break;
     case BA_QUALITY:                     /* HIGH > MID > LOW > HIGH: fewer bits and less of the air for the stream */
-        bts.quality = (uint8_t)((bts.quality + 1u) % 3u);
-        (void)plat_bta_quality(bts.quality);
+        bts.quality = (uint8_t)((bts.quality & 0x80u) | ((BTQ + 1u) % 3u));
+        (void)plat_bta_quality(BTQ);
         bts_dirty = 1;
         bts_t = plat_ms();
-        app_say("BT QUALITY", bts.quality == 0 ? "HIGH 289K" : bts.quality == 1 ? "MID 212K" : "LOW 174K");
+        app_say("BT QUALITY", BTQ == 0 ? "HIGH 289K" : BTQ == 1 ? "MID 212K" : "LOW 174K");
         break;
     case BA_MIDI:                        /* Bluetooth MIDI's advertising, which shares the air with the sound */
         bts.midioff = (uint8_t)!bts.midioff;
@@ -2707,10 +2779,30 @@ static void bt_poll(void)                /* the radio's news: a link that ended 
     }
 }
 
+static void midi_knob(uint32_t kn, int32_t e)   /* MIDI: K1 the sync, right ON, left OFF. K2 is Ableton Link's place: it needs WiFi, which this build has not */
+{
+    if (kn == 0u) {
+        uint8_t on = (uint8_t)(e > 0);
+        if (on != xs.on) {
+            xs.on = on;                  /* (off: the render lets the clock go at its next block) */
+            bts.quality = (uint8_t)((bts.quality & 0x7Fu) | (on ? 0x80u : 0u));
+            bts_dirty = 1;
+            bts_t = plat_ms();
+            app_say("MIDI SYNC", on ? "ON" : "OFF");
+        }
+    } else if (kn == 1u) {
+        app_say("LINK", "NEEDS WIFI");
+    }
+    ui.d_vis = ui.d_foot = ui.d_head = 1;
+}
 static void patt_knob(uint32_t kn, int32_t e)   /* PATTERNS: pick, command, bank, song / SONG: slot, pattern, clear, song / presets / Bluetooth */
 {
     if (pg() == 4u) {
         bt_knob(kn, e);
+        return;
+    }
+    if (pg() == 5u) {
+        midi_knob(kn, e);
         return;
     }
     if (pg() == 0) {
@@ -3055,9 +3147,9 @@ static void input(void)
      * on; in PATTERNS the pattern playing (bright) and the one queued (dim), the black keys the bank; in SCALE the notes. */
     {
         uint32_t lit_k = 0, dim_k = 0, mid_k = 0;
-        uint32_t lit_b = 1u << (ui.mode == M_SEQ ? B_SEQ : ui.mode == M_SYN ? (pg() == 2 ? B_ENV : B_EDIT) :
+        uint32_t lit_b = 1u << (ui.mode == M_SEQ ? B_SEQ : ui.mode == M_SYN ? B_EDIT :
                          ui.mode == M_PATCH ? B_LFO : ui.mode == M_KICK ? B_ARP : ui.mode == M_FX ? B_FX :
-                         ui.mode == M_PATT ? B_GLO : ui.mode == M_RAND ? B_REC : ui.mode == M_SCALE ? B_SEL : B_HOME);
+                         ui.mode == M_PATT ? B_GLO : ui.mode == M_RAND ? B_REC : ui.mode == M_SCALE ? B_SEL : B_SAVE);
         pat_t *p = cur_pat();
         if (ui.mode == M_FX) {
             const uint8_t *B = pg() == 6u ? FXB_MIX : FXB_PAGE;
@@ -3121,8 +3213,6 @@ static void input(void)
                     lit_k |= 1u << WK[ps];
             }
         }
-        if (dirty)
-            lit_b |= 1u << B_SAVE;
         if (sq.running)
             lit_b |= LED_PLAY_GREEN;
         plat_lights(lit_b, lit_k, 0, dim_k, 1);
@@ -3230,15 +3320,17 @@ static const char *page_title(void)
     default: return r ? r->title : "";
     }
 }
+static uint16_t head_col(void) { return ui.mode == M_PATT && pg() == 4u ? CL_G : MC[ui.mode]; }   /* BLUETOOTH: green */
 static void draw_head(void)
 {
     char t[40], n[12];
     int32_t w, x, i;
-    uint16_t mc = MC[ui.mode];
+    uint16_t mc = head_col();
+    const char *mn = ui.mode == M_PATT && pg() == 4u ? "BLUETOOTH" : ui.mode == M_PATT && pg() == 5u ? "MIDI" : MODE_NAME[ui.mode];
     cv_begin(240, 32, C_BLACK);
-    w = text_w(&FONT_B, MODE_NAME[ui.mode]);
+    w = text_w(&FONT_B, mn);
     cv_rect(3, 1, w + 10, 18, mc);
-    cv_text(8, 2, &FONT_B, MODE_NAME[ui.mode], C_BLACK);
+    cv_text(8, 2, &FONT_B, mn, C_BLACK);
     x = 3 + w + 10 + 7;
     if (NPAGE[ui.mode] > 9u) {           /* too many pages for dots: the number */
         int_text((int32_t)pg() + 1, t);
@@ -3257,10 +3349,17 @@ static void draw_head(void)
         cv_rect(152, 4, 4, 12, CL_L);
         cv_rect(159, 4, 4, 12, CL_L);
     }
-    int_text(sd.bpm, n);
-    w = text_w(&FONT_B, n);
-    cv_text(236 - w, 2, &FONT_B, n, C_WHITE);
-    cv_text(236 - w - 4 - text_w(&FONT_T, "BPM"), 6, &FONT_T, "BPM", CL_L);
+    {                                    /* the tempo: the clock's while one comes in (EXT) */
+        uint32_t xb = xs.live ? xs.bpm : 0u;
+        const char *bl = xs.live ? "EXT" : "BPM";
+        if (xs.live && !xb)
+            scopy(n, "---", 12);
+        else
+            int_text(xb ? (int32_t)xb : sd.bpm, n);
+        w = text_w(&FONT_B, n);
+        cv_text(236 - w, 2, &FONT_B, n, C_WHITE);
+        cv_text(236 - w - 4 - text_w(&FONT_T, bl), 6, &FONT_T, bl, xs.live ? CL_G : CL_L);
+    }
     cv_rect(3, 21, 234, 1, CL_PNL);
     if (plat_ms() < ui.msg_until) {
         x = cv_text(4, 20, &FONT_T, ui.msg[0], C_WHITE);
@@ -3333,7 +3432,7 @@ static void draw_strip(void)
             c = C_WHITE;
         cv_rect(x, 1, cw, 5, c);
         if (kick ? ui.ksel == i : (ui.mode == M_SEQ && ui.sel == i))
-            cv_rect(x, 7, cw, 2, MC[ui.mode]);
+            cv_rect(x, 7, cw, 2, head_col());
     }
     cv_blit(0, 32);
 }
@@ -3471,6 +3570,13 @@ static void foot_cells(fcell_t *c)
             cell_set(&c[1], "TO BANK", "TURN >", -1, 0);
             cell_set(&c[2], "TO ALL", "TURN >", -1, 0);
             cell_set(&c[3], "RESET", "TURN >", -1, 0);
+        } else if (pg() == 5u) {           /* MIDI */
+            cell_set(&c[0], "MIDI SYNC", xs.on ? "ON" : "OFF", xs.on ? 127 : 0, 0);
+            cell_set(&c[1], "LINK", "N/A", 0, 0);
+            c[1].dim = 1;
+            cell_set(&c[2], "-", "", -1, 0);
+            cell_set(&c[3], "-", "", -1, 0);
+            c[2].dim = c[3].dim = 1;
         } else {                           /* Bluetooth */
             bt_list();
             cell_set(&c[0], "BLUETOOTH", bts.on ? "ON" : "OFF", bts.on ? 127 : 0, 0);
@@ -4319,7 +4425,7 @@ static void vis_bt(void)                 /* BLUETOOTH: its state, and the device
         char nb[12];
         int32_t us = plat_bta_latency_us();
         lv[0] = 0;
-        text_cat(lv, BT_Q[bts.quality]);
+        text_cat(lv, BT_Q[BTQ]);
         text_cat(lv, bts.midioff ? " MIDI OFF  CPU " : " MIDI ON  CPU ");
         int_text((int32_t)plat_cpu_pct(), nb);
         text_cat(lv, nb);
@@ -4371,11 +4477,41 @@ static void vis_bt(void)                 /* BLUETOOTH: its state, and the device
     }
 }
 
+static void vis_midi(void)               /* MIDI: the sync, the clock that comes in, and Link's place */
+{
+    char t[40], n[12];
+    cv_text(6, 2, &FONT_M, xs.on ? "MIDI SYNC ON" : "MIDI SYNC OFF", xs.on ? CL_G : CL_L);
+    if (!xs.on) {
+        cv_text(6, 27, &FONT_T, "K1 TURNED TO THE RIGHT: SWITCH IT ON", CL_Y);
+    } else if (xs.live) {
+        scopy(t, "CLOCK IN: ", 40);
+        if (xs.bpm) {
+            int_text(xs.bpm, n);
+            text_cat(t, n);
+            text_cat(t, " BPM");
+        } else {
+            text_cat(t, "...");
+        }
+        cv_text(6, 27, &FONT_T, t, CL_G);
+    } else {
+        cv_text(6, 27, &FONT_T, "NO CLOCK: THE FM-1 KEEPS ITS OWN TEMPO", CL_Y);
+    }
+    cv_text(6, 44, &FONT_T, "THE STEPS FOLLOW THE MIDI CLOCK, AND ITS", CL_L);
+    cv_text(6, 57, &FONT_T, "START AND STOP RUN THE SEQUENCER", CL_L);
+    cv_text(6, 70, &FONT_T, "IN FROM USB, THE MIDI JACK OR BLUETOOTH", CL_L);
+    cv_rect(6, 88, 228, 1, CL_PNL);
+    cv_text(6, 92, &FONT_T, "ABLETON LINK: NOT AVAILABLE YET", CL_O);
+    cv_text(6, 105, &FONT_T, "IT NEEDS WIFI, WHICH THIS VERSION LACKS", CL_L);
+}
 static void vis_patt(void)
 {
     int32_t i, k;
     if (pg() == 4u) {
         vis_bt();
+        return;
+    }
+    if (pg() == 5u) {
+        vis_midi();
         return;
     }
     if (pg() == 0) {
@@ -4622,7 +4758,7 @@ static void vis_home(void)
 
 /* HELP */
 static const char *const HELP[4][8] = {
-    {"SEQ STEPS  EDIT SYNTH  ENV ENVELOPES", "LFO PATCH  FX EFFECTS  ARP KICK", "GLO PATTERNS  SCL SCALE  HOME THIS",
+    {"SEQ STEPS  EDIT SYNTH (ENV, HOME: OFF)", "LFO PATCH  FX EFFECTS  ARP KICK", "GLO PATTERNS  SCL SCALE  SAVE THIS",
      "PRESS A MODE KEY AGAIN: NEXT PAGE", "REC OPENS THE RANDOM SETUP PAGES", "OCT- + REC: RANDOM OF THIS PAGE",
      "OCT+ + REC TAP: SEQ SYNTH KICK", "OCT+ + REC HELD: INIT THIS PATTERN"},
     {"WHITE KEYS = STEPS (SEQ, KICK)", "TAP A KEY: OFF > TRIG > ACCENT", "HOLD A KEY + TURN K1-K4: THAT STEP",
@@ -4630,10 +4766,10 @@ static const char *const HELP[4][8] = {
      "RANDOM: KEYS 1-4 ON/OFF, 5 ALL", "SCALE: ANY KEY SETS THE ROOT"},
     {"K1-K4: THE FOUR KNOBS OF THE PAGE", "OCT- HELD + K1-K4: FASTER, SEQ: K4 NUDGE", "ALGORITHM: THE STEP, OR THE TEMPO",
      "TEMPO: SEQ PAGE 3 (K1 +1, K2 +10)", "PLAY RUN/STOP, HELD: RESET", "FX MIXER: LAST WHITE KEY = DLY REV",
-     "DJF AND STUT OFF AT ONCE", "SAVE NOW, AUTOSAVE WHEN STOPPED"},
+     "DJF AND STUT OFF AT ONCE", "IT SAVES BY ITSELF WHEN STOPPED"},
     {"2 VCO, 16 WAVES, SYNC, FM, NOISE", "FILTER LP4 LP2 BP HP, 3 ENVELOPES", "KICK: STEP PITCH, VOL, COND, NUDGE",
      "PATCH: 8 CABLES, SOURCE AND DEPTH", "FX: COMP DLY REV STUT DJ-HPF LIMIT", "EACH PATTERN HAS ITS OWN SOUND",
-     "GLO PAGE 5: BLUETOOTH, SOUND TO HEADSETS", "FM-FAM V" APP_VERSION}};
+     "GLO PAGE 5 BLUETOOTH, 6 MIDI SYNC", "FM-FAM V" APP_VERSION}};
 static void vis_help(void)
 {
     int32_t i, p = (int32_t)pg() - 6;
@@ -4712,6 +4848,16 @@ void app_frame(void)
     if (bts_dirty && !bk_hold && !sq.running && now - bts_t >= 1500u)    /* what Bluetooth keeps, or its switch */
         bt_store();
     bt_poll();
+    {
+        static uint32_t xlast;
+        uint32_t x = (uint32_t)xs.live << 16 | xs.bpm;
+        if (x != xlast) {
+            xlast = x;
+            ui.d_head = 1;
+            if (ui.mode == M_PATT && pg() == 5u)
+                ui.d_vis = 1;
+        }
+    }
     if (now - ui.cpu_t >= 500u) {
         ui.cpu_t = now;
         if (plat_cpu_pct() != ui.cpu_last) {
@@ -4948,7 +5094,7 @@ int app_expect(const char *what, int *got)
         bt_list();                       /* the Bluetooth page: bton, btsel, btact, btn (devices listed), btkn (kept), btstate, btdirty; btname: the first letter of the selected one */
         *got = !strcmp(what, "bton") ? bts.on : !strcmp(what, "btsel") ? ui.bt_sel : !strcmp(what, "btact") ? ui.bt_act :
                !strcmp(what, "btn") ? bt.n : !strcmp(what, "btkn") ? bt.kn : !strcmp(what, "btstate") ? plat_bta_state() :
-               !strcmp(what, "btdirty") ? bts_dirty : !strcmp(what, "btq") ? bts.quality : !strcmp(what, "btqp") ? plat_bta_quality(-1) :
+               !strcmp(what, "btdirty") ? bts_dirty : !strcmp(what, "btq") ? (int)BTQ : !strcmp(what, "btqp") ? plat_bta_quality(-1) :
                !strcmp(what, "btmidioff") ? bts.midioff : bt.n ? bt.name[ui.bt_sel][0] : 0;
         return 1;
     }
@@ -5045,6 +5191,12 @@ int app_expect(const char *what, int *got)
         *got = sq.kstep;
     else if (!strcmp(what, "running"))
         *got = sq.running;
+    else if (!strcmp(what, "sync"))
+        *got = xs.on;
+    else if (!strcmp(what, "extlive"))
+        *got = xs.live;
+    else if (!strcmp(what, "extbpm"))
+        *got = xs.bpm;
     else if (!strcmp(what, "bpm"))
         *got = sd.bpm;
     else if (!strcmp(what, "pat"))

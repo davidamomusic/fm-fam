@@ -137,7 +137,7 @@ shot rm_scale2.png
 spin SELECT -2
 wait 60
 # HOME: projects, the five preset lists and the four help pages
-tap HOME
+tap SAVE
 wait 80
 expect mode 8
 shot rm_home1.png

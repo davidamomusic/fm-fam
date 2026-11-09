@@ -62,7 +62,14 @@ wait 80
 shot v_output.png
 tap SEQ
 expect mode 0
+# ENV does nothing for now (0.2.2): the envelopes are SYNTH's third page
 tap ENV
+expect mode 0
+tap EDIT
+spin SELECT -9
+wait 60
+spin SELECT 2
+wait 60
 expect mode 1
 expect page 2
 wait 80
@@ -114,6 +121,8 @@ shot v_fx3.png
 # patterns: a black key is a bank, a white key a pattern
 tap GLO
 expect mode 5
+spin SELECT -9
+wait 60
 tapkey b2
 expect bank 2
 tapkey w4
@@ -124,7 +133,7 @@ tap GLO
 expect page 1
 wait 80
 shot v_song.png
-tap HOME
+tap SAVE
 expect mode 8
 spin SELECT 6
 wait 80

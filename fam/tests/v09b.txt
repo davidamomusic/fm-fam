@@ -90,25 +90,32 @@ expect page 3
 tap GLO
 expect page 4
 tap GLO
+expect page 5
+tap GLO
 expect page 0
-tap HOME
+tap SAVE
 expect mode 8
-tap HOME
+tap SAVE
 expect page 1
 spin SELECT 8
 expect page 9
-tap HOME
+tap SAVE
 expect page 0
-# ENV: from another mode it opens the envelopes; in SYNTH it is a page key like the others
+# ENV and HOME do nothing for now (0.2.2); SAVE opens HOME
 tap SEQ
 tap ENV
+expect mode 0
+tap HOME
+expect mode 0
+tap EDIT
 expect mode 1
-expect page 2
-tap ENV
-expect page 3
 # the SYNC switch flips at the first click of K3, on the mixer page
 tap SEQ
 tap EDIT
+spin SELECT -9
+wait 60
+spin SELECT 3
+wait 60
 expect mode 1
 expect page 3
 expect syn9 0

@@ -4,6 +4,8 @@ expect bton 0
 expect btq 0
 expect btqp 0
 tap GLO
+spin SELECT -9
+wait 60
 spin SELECT 4
 spin K1 1
 expect bton 1
@@ -60,6 +62,8 @@ expect btqp 1
 expect btmidioff 1
 # the quality and the MIDI switch with Bluetooth off: K4 only says it is off
 tap GLO
+spin SELECT -9
+wait 60
 spin SELECT 4
 spin K1 -1
 expect bton 0

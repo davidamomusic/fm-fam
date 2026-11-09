@@ -11,7 +11,7 @@ tapkey w2
 wait 60
 expect trig2 2
 # HOME, projects: slot 1, SAVE, turn K4
-tap HOME
+tap SAVE
 expect mode 8
 expect page 0
 tapkey w1
@@ -30,7 +30,7 @@ tap SEQ
 tapkey w2
 wait 60
 expect trig2 0
-tap HOME
+tap SAVE
 tapkey w1
 spin K2 -1
 expect hact 0
@@ -40,7 +40,7 @@ expect syn0 67
 tap SEQ
 expect trig2 2
 # the project slots: clear slot 1
-tap HOME
+tap SAVE
 tapkey w1
 turn K2 3
 expect hact 3
@@ -62,7 +62,7 @@ expect uused0 1
 tap EDIT
 spin K1 3
 expect syn0 70
-tap HOME
+tap SAVE
 turn K2 -3
 expect hact 0
 spin K4 1
@@ -70,7 +70,7 @@ wait 100
 expect syn0 67
 # the user preset can be cleared
 tap SEQ
-tap HOME
+tap SAVE
 turn K2 3
 spin K4 1
 wait 100

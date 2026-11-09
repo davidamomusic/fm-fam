@@ -2,6 +2,8 @@
 wait 500
 expect bton 0
 tap GLO
+spin SELECT -9
+wait 60
 spin SELECT 4
 spin K1 1
 expect bton 1
@@ -22,6 +24,8 @@ reboot
 wait 800
 expect bton 1
 tap GLO
+spin SELECT -9
+wait 60
 spin SELECT 4
 wait 200
 expect page 4
@@ -36,6 +40,8 @@ reboot
 wait 800
 expect bton 0
 tap GLO
+spin SELECT -9
+wait 60
 spin SELECT 4
 wait 200
 expect btn 0
