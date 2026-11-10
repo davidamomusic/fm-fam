@@ -90,10 +90,10 @@ encoder moves to the next part (`choice_step()` in `fam/app.c`), and the lock of
 of SEQ and of the KICK sequence start at the same x (`col_x0()`). Tested by `fam/tests/v021a.txt` (the choices) and by `fam/tests/v021b.txt` with
 `python3 fam/tests/align_check.py DIRECTORY` (the picture, at seven lengths).
 
-What 0.2.2 to 0.2.4 added:
+What 0.2.2 to 0.2.5 added:
 
 - Buttons. `SAVE` opens the projects and the presets (six pages; the mode is called SAVE). `HOME` and `ENV` do nothing alone;
-  `OCT-` + `HOME` is the melody random. There is no save key: the autosave writes a moment after the last change, with the sequencer
+  `OCT-` + `HOME` is the melody random and `OCT+` + `HOME` the general random. There is no save key: the autosave writes a moment after the last change, with the sequencer
   stopped and nothing sounding (a flash write stops the sound for an instant), and the SAVE actions of the projects and presets write at once.
 - `GLO` has eight pages. After the four of the patterns: BLUETOOTH (its header in green), MIDI, AUDIO and VERSION.
 - MIDI sync (`GLO` page 6, K1; off at first). With it on, the MIDI clock that comes in from USB, the MIDI jack or Bluetooth plays the
@@ -106,13 +106,14 @@ What 0.2.2 to 0.2.4 added:
   `plat_out_off()` is FM-FAM's addition to the platform (`include/plat.h`, `device/plat_fm1.c`, `device/main_fm1.c`,
   `host/plat_host.c`). The settings are kept with Bluetooth's and survive a power-off.
 - Random. A random draws the kick's click from 0 to 9, the resonance from 0 to 50 and the kick's level from 90 to 100, and the general
-  random (`OCT+` + `REC`) keeps the last two at 50 and 100 or under. Each RANDOM page says whether the general random draws it (the
+  random of `OCT+` + `HOME` (0.2.5; `random_run(1)`) keeps the last two at 50 and 100 or under. `OCT+` + `REC` (a tap) is the general
+  random as 0.2.3 drew it (`random_run(2)`): the resonance up to 85 and the kick's level from 100 to 110. Each RANDOM page says whether the general random draws it (the
   steps, the synth and the kick: yes; the patch bay, the effects, the scale and the tempo: no) and what each knob draws.
   `OCT-` + `HOME` (`random_melody()`): a voice that holds a pitch, the cables off, one of six scales with the quantizer on (the root
   stays), a phrase built from a four-step figure, and a kick on every beat; the kick's sound, the effects and the tempo stay.
 - Tests: `fam/tests/v022a.txt` (the sync, the AUDIO page, the buttons) and `fam/tests/v024a.txt` (the random's caps, the pages, the melody).
 
-Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; a package is `fm-fam-0.2.4.fwsc` and its tag `v0.2.4`); the
+Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; a package is `fm-fam-0.2.5.fwsc` and its tag `v0.2.5`); the
 releases before it are 0.19 and 0.20.
 
 ## Identity and package

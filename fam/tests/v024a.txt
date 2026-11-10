@@ -1,4 +1,4 @@
-# FM-FAM v0.2.4: the general random's caps (resonance 50, the kick's level 100), SAVE's six pages, the VERSION page
+# FM-FAM v0.2.4 and v0.2.5: the general random's caps (resonance 50, the kick's level 100), SAVE's six pages, the VERSION page
 # (GLO page 8), what the RANDOM pages say, and the melody random (OCT- + HOME)
 #   fam/build/host/fm-fam_host fam/tests/v024a.txt DIRECTORY
 wait 3000
@@ -17,17 +17,54 @@ wait 80
 expect mode 5
 expect page 7
 shot version.png
-# the general random (OCT+ + REC, a tap), five times: the resonance never over 50, the kick's level never over 100
+# the general random (OCT+ + HOME since 0.2.5), five times: the resonance never over 50, the kick's level never over 100
 tap SEQ
 press OCT+
 wait 60
-press REC
+tap HOME
 wait 60
-release REC
 release OCT+
 wait 100
+expect mode 0
 expect syn13 <51
 expect kick6 <101
+press OCT+
+wait 60
+tap HOME
+wait 60
+release OCT+
+wait 100
+expect mode 0
+expect syn13 <51
+expect kick6 <101
+press OCT+
+wait 60
+tap HOME
+wait 60
+release OCT+
+wait 100
+expect mode 0
+expect syn13 <51
+expect kick6 <101
+press OCT+
+wait 60
+tap HOME
+wait 60
+release OCT+
+wait 100
+expect mode 0
+expect syn13 <51
+expect kick6 <101
+press OCT+
+wait 60
+tap HOME
+wait 60
+release OCT+
+wait 100
+expect mode 0
+expect syn13 <51
+expect kick6 <101
+# OCT+ + REC (a tap) is the general random as 0.2.3 drew it: the kick's level 100..110, the resonance up to 85
 press OCT+
 wait 60
 press REC
@@ -35,8 +72,10 @@ wait 60
 release REC
 release OCT+
 wait 100
-expect syn13 <51
-expect kick6 <101
+expect mode 0
+expect kick6 >99
+expect kick6 <111
+expect syn13 <86
 press OCT+
 wait 60
 press REC
@@ -44,8 +83,10 @@ wait 60
 release REC
 release OCT+
 wait 100
-expect syn13 <51
-expect kick6 <101
+expect mode 0
+expect kick6 >99
+expect kick6 <111
+expect syn13 <86
 press OCT+
 wait 60
 press REC
@@ -53,17 +94,10 @@ wait 60
 release REC
 release OCT+
 wait 100
-expect syn13 <51
-expect kick6 <101
-press OCT+
-wait 60
-press REC
-wait 60
-release REC
-release OCT+
-wait 100
-expect syn13 <51
-expect kick6 <101
+expect mode 0
+expect kick6 >99
+expect kick6 <111
+expect syn13 <86
 # the RANDOM pages: the synth's filter page is part of the general random, the effects' are not
 tap EDIT
 spin SELECT -9

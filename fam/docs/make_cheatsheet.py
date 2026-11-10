@@ -9,7 +9,7 @@ import base64, html, os, subprocess, sys
 card_png, out_dir = sys.argv[1], sys.argv[2]
 os.makedirs(out_dir, exist_ok=True)
 
-VERSION = "0.2.4"
+VERSION = "0.2.5"
 DESCRIPTION = ("DFAM style 16-step sequencer and a drum synth for the FM-1. It has two oscillators with 16 wave "
                "types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects "
                "chain, random pages, scales, presets and projects. Bluetooth audio is experimental.")
@@ -104,13 +104,15 @@ SECTIONS = [
          "Opens the RANDOM page of the page you are on (23 pages); press again to go back. Each knob has an ON/OFF "
          "switch and an amount (0-100%)."),
         ("What a page says",
-         "IN or NOT IN `OCT+` + `REC`: whether the general random draws this page. Under each bar, what that knob "
+         "IN or NOT IN `OCT+` + `HOME`/`REC`: whether the general random draws this page. Under each bar, what that knob "
          "draws: a range (0-50), ANY for a choice, AUTO for a draw of its own."),
         ("RANDOM keys",
          "White keys 1-4 switch a knob on or off, 5 all of them, 6 randomize this page, 7 the general random."),
+        ("`OCT+` + `HOME`",
+         "The general random: steps, synth sound and kick in one go. Cables, FX, scale and BPM stay. The resonance "
+         "stays at 50 or under and the kick's level at 100 or under."),
         ("`OCT+` + `REC` tap",
-         "The general random: steps, synth sound and kick in one go, when you let go. Cables, FX, scale and BPM "
-         "stay. The resonance stays at 50 or under and the kick's level at 100 or under."),
+         "The same general random with a wider draw, when you let go: the resonance up to 85, the kick louder."),
         ("`OCT-` + `REC`",
          "Randomize only this page: whatever is switched on there (patch bay, FX and scale included)."),
         ("`OCT-` + `HOME`",

@@ -1857,6 +1857,7 @@ static int fmt_disc(uint8_t f)
  * (noise, FM, sync, the second oscillator, the envelope depths), and steps that are the notes of a minor pentatonic, one in
  * four a rest. rnd_hat is the kind of this random (the same for every page of it). */
 static int rnd_hat;
+static int rnd_wide;                     /* OCT+ + REC, the general random as 0.2.3 drew it: the resonance up to 85, the kick's level 100..110 */
 static int rnd_pz(const knob_t *kn) { return kn->pz && (int)(rnd() % 100u) < kn->pz; }
 static void rnd_knob(const knob_t *kn, int amt)  /* a number moves toward a draw by the amount; a choice changes with those odds */
 {
@@ -1892,7 +1893,14 @@ static void rnd_knob(const knob_t *kn, int amt)  /* a number moves toward a draw
         case F_TIME:
         case F_SLICE: t = (int)(rnd() % 8u) * 16 + 8; break;
         default:
-            t = rnd_pz(kn) ? (int)kn->z : kn->lo + (int)(rnd() % (uint32_t)(kn->hi - kn->lo + 1));
+            {
+                int lo = kn->lo, hi = kn->hi;
+                if (rnd_wide && kn->p == &sd.syn[P_RES])
+                    hi = 85;
+                else if (rnd_wide && kn->p == &kick_p[K_LVL])
+                    lo = 100, hi = 110;
+                t = rnd_pz(kn) ? (int)kn->z : lo + (int)(rnd() % (uint32_t)(hi - lo + 1));
+            }
             break;
         }
         break;
@@ -2078,15 +2086,19 @@ static int rnd_page(int rp)              /* the knobs of a page that are on; the
     return n;
 }
 static int rnd_in_all(int rp) { return rp <= 7 || (rp >= 9 && rp <= 12); }   /* what ALL draws: the steps, the synth and the kick (not the cables, the effects, the scale, the tempo) */
-static void random_run(int all)          /* OCT- + REC: this page; OCT+ + REC (a tap): the steps, the synth and the kick */
+/* all 0, OCT- + REC: this page. The general random draws the steps, the synth and the kick: all 1, OCT+ + HOME (and key 7 of
+ * a RANDOM page), with the resonance at 50 and the kick's level at 100 or under; all 2, OCT+ + REC (a tap), as 0.2.3 drew it. */
+static void random_run(int all)
 {
     int n = 0;
     rnd_hat = (int)(rnd() % 100u) < 15;
     if (all) {
+        rnd_wide = all == 2;
         for (int rp = 0; rp < NRP; rp++)
             if (rnd_in_all(rp))
                 n += rnd_page(rp);
-        if (n) {                         /* whatever the amounts say: the resonance stays at 50 or under, the kick's level at 100 */
+        rnd_wide = 0;
+        if (n && all == 1) {                         /* whatever the amounts say: the resonance stays at 50 or under, the kick's level at 100 */
             if (sd.syn[P_RES] > 50u)
                 sd.syn[P_RES] = 50;
             if (kick_p[K_LVL] > 100u)
@@ -2458,9 +2470,11 @@ static void on_button(uint32_t b)
     case B_FX: mode_key(M_FX, 0xFFu); break;
     case B_ARP: mode_key(M_KICK, 0xFFu); break;
     case B_SEL: mode_key(M_SCALE, 0xFFu); break;
-    case B_HOME:                                 /* alone it does nothing for now (SAVE opens its pages); with OCT- held: a melody */
+    case B_HOME:                                 /* alone it does nothing for now (SAVE opens its pages); with OCT- held: a melody; with OCT+: the general random */
         if ((plat_buttons() >> B_OCTDN) & 1u)
             random_melody();
+        else if ((plat_buttons() >> B_OCTUP) & 1u)   /* with OCT+ held: the general random */
+            random_run(1);
         break;
     case B_GLO: mode_key(M_PATT, 0xFFu); break;
     case B_PLAY:
@@ -3187,7 +3201,7 @@ static void input(void)
         ui.init_t = 0;                   /* OCT- joined: no init */
     else if (ui.init_t && (!rec || !upb)) {     /* OCT+ or REC let go before 0.7 s: a tap, the random of the steps, the synth, the kick */
         ui.init_t = 0;
-        random_run(1);
+        random_run(2);
         ui.rec_chord = 2;
     }
     if (ui.init_t && !ui.init_hint && now - ui.init_t >= 250u) {   /* (a tap does not flash it) */
@@ -4835,7 +4849,7 @@ static void vis_rand(void)
 {
     int rp = (int)pg(), q, all = rnd_in_all(rp);
     char t[40];
-    const char *tag = all ? "IN OCT+ + REC" : "NOT IN OCT+ + REC";
+    const char *tag = all ? "IN OCT+ + HOME/REC" : "NOT IN OCT+ + HOME/REC";
     scopy(t, rp_mode(rp), 40);
     text_cat(t, "  ");
     text_cat(t, rp_title(rp));
@@ -4857,7 +4871,7 @@ static void vis_rand(void)
         centre_text(x, 54, 81, &FONT_T, t, on ? CL_W : CL_L);
     }
     cv_text(4, 96, &FONT_T, "KEYS 1-4 ON/OFF  5 ALL  6 THIS PAGE  7 GENERAL", CL_L);
-    cv_text(4, 110, &FONT_T, all ? "OCT- + REC: THIS PAGE  OCT+ + REC: GENERAL" : "OCT- + REC: THIS PAGE (ONLY WAY TO DRAW IT)", CL_Y);
+    cv_text(4, 110, &FONT_T, all ? "OCT- + REC: PAGE  OCT+ + HOME OR REC: GENERAL" : "OCT- + REC: THIS PAGE (ONLY WAY TO DRAW IT)", CL_Y);
 }
 
 /* SCALE: the twelve notes (the root, the notes of the scale), and a melody through the scale, the spread and the transposition */
