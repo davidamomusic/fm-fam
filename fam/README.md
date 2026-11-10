@@ -90,7 +90,7 @@ encoder moves to the next part (`choice_step()` in `fam/app.c`), and the lock of
 of SEQ and of the KICK sequence start at the same x (`col_x0()`). Tested by `fam/tests/v021a.txt` (the choices) and by `fam/tests/v021b.txt` with
 `python3 fam/tests/align_check.py DIRECTORY` (the picture, at seven lengths).
 
-What 0.2.2 to 0.2.5 added:
+What 0.2.2 to 0.2.6 added:
 
 - Buttons. `SAVE` opens the projects and the presets (six pages; the mode is called SAVE). `HOME` and `ENV` do nothing alone;
   `OCT-` + `HOME` is the melody random and `OCT+` + `HOME` the general random. There is no save key: the autosave writes a moment after the last change, with the sequencer
@@ -111,9 +111,14 @@ What 0.2.2 to 0.2.5 added:
   steps, the synth and the kick: yes; the patch bay, the effects, the scale and the tempo: no) and what each knob draws.
   `OCT-` + `HOME` (`random_melody()`): a voice that holds a pitch, the cables off, one of six scales with the quantizer on (the root
   stays), a phrase built from a four-step figure, and a kick on every beat; the kick's sound, the effects and the tempo stay.
-- Tests: `fam/tests/v022a.txt` (the sync, the AUDIO page, the buttons) and `fam/tests/v024a.txt` (the random's caps, the pages, the melody).
+- 0.2.6. A random draws the reverb's width from 0 to 20 and never leaves it over 20. `OCT-` + `REC` held 0.7 s on a page of sound
+  parameters (SYNTH, the kick's sound pages, the effects, the patch bay) initialises that page (`page_init()`): its four knobs take the
+  values of the first factory preset of their kind, and in the patch bay every cable goes off; a tap is still the random of the page.
+  `OCT+` + `HOME` held 0.7 s is a percussion random (`random_perc()`): the steps and the kick as the general random draws them, and a
+  synth that is a drum between the mids and the lows (a pitch that falls, no attack, a short decay, no hat sounds).
+- Tests: `fam/tests/v026a.txt`, `fam/tests/v022a.txt` (the sync, the AUDIO page, the buttons) and `fam/tests/v024a.txt` (the random's caps, the pages, the melody).
 
-Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; a package is `fm-fam-0.2.5.fwsc` and its tag `v0.2.5`); the
+Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; a package is `fm-fam-0.2.6.fwsc` and its tag `v0.2.6`); the
 releases before it are 0.19 and 0.20.
 
 ## Identity and package

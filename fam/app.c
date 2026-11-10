@@ -1569,7 +1569,7 @@ static const row_t KICK_ROWS[] = {
 static const row_t FX_ROWS[] = {
     {"COMPRESSOR", {KN("THRESH", F_NUM, sd.fx[F_CMA]), KR("SPEED", F_NUM, sd.fx[F_CMS], 10, 100), KR("MAKEUP", F_NUM, sd.fx[F_CMG], 0, 60), KR("MIX", F_NUM, sd.fx[F_CMM], 40, 127)}, 4},
     {"DELAY", {KN("TIME", F_TIME, sd.fx[F_DLT]), KR("FEEDBACK", F_NUM, sd.fx[F_DLF], 0, 100), KN("TONE", F_NUM, sd.fx[F_DLK]), KR("MIX", F_NUM, sd.fx[F_DLM], 0, 80)}, 4},
-    {"REVERB", {KN("SIZE", F_NUM, sd.fx[F_RVS]), KN("TONE", F_NUM, sd.fx[F_RVT]), KR("WIDTH", F_NUM, sd.fx[F_RVW], 40, 127), KR("MIX", F_NUM, sd.fx[F_RVM], 0, 70)}, 4},
+    {"REVERB", {KN("SIZE", F_NUM, sd.fx[F_RVS]), KN("TONE", F_NUM, sd.fx[F_RVT]), KR("WIDTH", F_NUM, sd.fx[F_RVW], 0, 20), KR("MIX", F_NUM, sd.fx[F_RVM], 0, 70)}, 4},
     {"STUTTER", {KN("SLICE", F_SLICE, sd.fx[F_STS]), KR("SPEED", F_SPEED, sd.fx[F_STP], 32, 96), KR("DECAY", F_NUM, sd.fx[F_STD], 0, 90), KR("MIX", F_NUM, sd.fx[F_STM], 60, 127)}, 4},
     {"DJ FILTER", {KR("CUTOFF", F_NUM, sd.fx[F_DJC], 0, 70), KR("RESO", F_NUM, sd.fx[F_DJR], 0, 100), KN("SLOPE", F_SLOPE, sd.fx[F_DJS]), KR("MIX", F_NUM, sd.fx[F_DJM], 80, 127)}, 4},
     {"LIMITER", {KR("CEILING", F_NUM, sd.fx[F_LIM], 60, 127), KR("DRIVE", F_NUM, sd.fx[F_LMD], 0, 50), KR("OUTPUT", F_NUM, sd.fx[F_LMO], 70, 110), KN("SOFT", F_NUM, sd.fx[F_LMS])}, 4},
@@ -1645,6 +1645,8 @@ static struct {
     uint8_t stut_mom;                    /* FX: the stutter was switched on by a key still down */
     uint32_t stut_t, play_t, init_t;     /* init_t: when OCT+ and REC went down together (0 none) */
     uint8_t init_hint;                   /* HOLD TO INIT has been shown for this press */
+    uint32_t home_t, pinit_t;            /* when OCT+ + HOME, and OCT- + REC on a sound page, went down (0: not held) */
+    uint8_t pinit_hint;
     uint8_t rec_chord;                   /* REC was used with other keys: it is not a tap that opens RANDOM */
     uint8_t fast;                        /* OCT- held (without REC): the knobs K1-K4 move faster */
     uint8_t fast_was;                    /* fast on the last frame (the footer changes when OCT- goes down or up) */
@@ -2116,11 +2118,102 @@ static void random_run(int all)
             publish();
             app_say("RANDOM", n ? "STEPS" : "NO PAGE");
         } else {
+            const row_t *r = rp_row(rp);
             n = rnd_page(rp);
+            if (n && r && r == &FX_ROWS[rp - 13] && rp >= 13 && rp <= 19)
+                for (int q = 0; q < 4; q++)      /* the reverb's width: 20 or under after a random, whatever its amount */
+                    if (r->k[q].p == &sd.fx[F_RVW] && sd.fx[F_RVW] > 20u)
+                        sd.fx[F_RVW] = 20;
             publish();
             app_say("RANDOM", n ? rp_title(rp) : "ALL OFF");
         }
     }
+    touch();
+    dirty_all();
+}
+
+/* OCT+ + HOME held 0.7 s: a random for percussion between the mids and the lows. The steps and the kick are drawn as the
+ * general random draws them; the synth becomes a drum: a low or middle pitch that falls (a strong, short pitch envelope),
+ * no attack, a short decay, a low-pass or band-pass that closes fast, now and then some noise, FM or a second oscillator
+ * out of tune. No high "hat" sounds. The cables, the effects, the scale and the tempo stay. */
+static void random_perc(void)
+{
+    static const uint8_t WV[8] = {4, 4, 0, 2, 7, 11, 12, 13};    /* SIN SIN TRI SQR FM FOLD DIGI METAL */
+    uint8_t *y = sd.syn;
+    int n = 0;
+    rnd_hat = 0;
+    for (int rp = 0; rp < NRP; rp++)
+        if (rnd_in_all(rp) && !(rp >= 2 && rp <= 7))
+            n += rnd_page(rp);
+    y[P_V1FRQ] = (uint8_t)(64 + 2 * ((int)(rnd() % 21u) - 14));  /* 26..46 semitones: from a low tom to a middle one */
+    y[P_V1WAV] = (uint8_t)(WV[rnd() % 8u] * 8u + 4u);
+    y[P_V1LVL] = (uint8_t)(100 + rnd() % 28u);
+    y[P_V1EG] = (uint8_t)(45 + rnd() % 66u);
+    y[P_V2FRQ] = (uint8_t)clamp((int)y[P_V1FRQ] + 2 * ((int)(rnd() % 17u) - 7), 0, 127);
+    y[P_V2WAV] = (uint8_t)(WV[rnd() % 8u] * 8u + 4u);
+    y[P_V2LVL] = (uint8_t)(rnd() % 10u < 4u ? 0 : 30 + rnd() % 61u);
+    y[P_V2EG] = (uint8_t)(30 + rnd() % 71u);
+    y[P_FM] = (uint8_t)(rnd() % 10u < 5u ? 0 : 10 + rnd() % 61u);
+    y[P_SYN] = (uint8_t)(rnd() % 5u == 0 ? 127 : 0);
+    y[P_NSE] = (uint8_t)(rnd() % 10u < 5u ? 0 : 8 + rnd() % 38u);
+    y[P_VDEC] = (uint8_t)(15 + rnd() % 41u);
+    y[P_CUT] = (uint8_t)(45 + rnd() % 56u);
+    y[P_RES] = (uint8_t)(rnd() % 41u);
+    y[P_MODE] = (uint8_t)((rnd() % 5u == 0 ? 2u : rnd() & 1u) * 32u + 16u);      /* LP4, LP2, now and then BP */
+    y[P_FEG] = (uint8_t)(30 + rnd() % 71u);
+    y[P_FDEC] = (uint8_t)(15 + rnd() % 41u);
+    y[P_ATK] = 0;
+    y[P_ADEC] = (uint8_t)(12 + rnd() % 39u);
+    y[P_VOL] = 100;
+    y[P_DRV] = (uint8_t)(rnd() % 51u);
+    y[P_ACC] = (uint8_t)(70 + rnd() % 41u);
+    y[P_GLD] = 0;
+    y[P_TUN] = 64;
+    if (kick_p[K_LVL] > 100u)
+        kick_p[K_LVL] = 100;
+    publish();
+    app_say("RANDOM", n ? "PERCUSSION" : "PERC SOUND");
+    touch();
+    dirty_all();
+}
+
+/* OCT- + REC held 0.7 s, on a page of sound parameters (SYNTH, KICK's sound pages, the effects, the patch bay): the page's
+ * four knobs go back to the first power-on sound (the first factory preset of its kind); in the patch bay, every cable off.
+ * Returns 0 on a page that has no such thing (the steps, the kick's line, the scale, the patterns). */
+static int page_init_rp(void)
+{
+    int rp = ui.mode == M_RAND ? (int)pg() : rp_of(ui.mode, pg());
+    return rp == 8 || (rp >= 2 && rp <= 7) || (rp >= 9 && rp <= 11) || (rp >= 13 && rp <= 19) ? rp : -1;
+}
+static void page_init(void)
+{
+    int rp = page_init_rp(), q, k;
+    const row_t *r;
+    uint8_t d[28];
+    if (rp < 0)
+        return;
+    if (rp == 8) {
+        for (q = 0; q < NPATCH; q++) {
+            sd.src[q] = S_OFF;
+            sd.amt[q] = 64;
+        }
+        sd.pon = 0;
+    } else {
+        const uint8_t *base;
+        int cnt;
+        r = rp_row(rp);
+        k = rp <= 7 ? PK_SYN : rp <= 11 ? PK_KICK : PK_FX;
+        base = k == PK_SYN ? sd.syn : k == PK_KICK ? kick_p : sd.fx;
+        cnt = k == PK_SYN ? NSYN : k == PK_KICK ? NKICK : NFX;
+        pre_fact(k, 0, d);
+        for (q = 0; r && q < 4; q++) {
+            uint8_t *p = r->k[q].p;
+            if (p && p >= base && p < base + cnt)
+                *p = d[p - base];
+        }
+    }
+    publish();
+    app_say("INIT PAGE", rp_title(rp));
     touch();
     dirty_all();
 }
@@ -2473,8 +2566,12 @@ static void on_button(uint32_t b)
     case B_HOME:                                 /* alone it does nothing for now (SAVE opens its pages); with OCT- held: a melody; with OCT+: the general random */
         if ((plat_buttons() >> B_OCTDN) & 1u)
             random_melody();
-        else if ((plat_buttons() >> B_OCTUP) & 1u)   /* with OCT+ held: the general random */
+        else if ((plat_buttons() >> B_OCTUP) & 1u) { /* with OCT+ held: the general random at once; kept down 0.7 s, percussion */
             random_run(1);
+            ui.home_t = plat_ms();
+            if (!ui.home_t)
+                ui.home_t = 1;
+        }
         break;
     case B_GLO: mode_key(M_PATT, 0xFFu); break;
     case B_PLAY:
@@ -3175,9 +3272,14 @@ static void input(void)
             touch();
             app_say("KICK STEP", "CLEARED");
             ui.d_vis = ui.d_foot = ui.d_strip = 1;
-        } else if (dn) {                 /* OCT- was down first: a random of this page (OCT+ as well changes nothing) */
+        } else if (dn) {                 /* OCT- was down first: a random of this page (OCT+ as well changes nothing); kept
+                                          * down 0.7 s on a page of sound parameters, the page is initialised instead */
             random_run(0);
             ui.rec_chord = 2;
+            if (page_init_rp() >= 0) {
+                ui.pinit_t = now ? now : 1u;
+                ui.pinit_hint = 0;
+            }
         } else if (upb) {                /* OCT+ was down first: a tap is the whole random, 0.7 s the init */
             ui.rec_chord = 1;
             ui.init_t = now ? now : 1u;
@@ -3212,6 +3314,22 @@ static void input(void)
         ui.init_t = 0;
         ui.rec_chord = 2;
         pattern_init();
+    }
+    if (ui.pinit_t && (!rec || !dn))     /* let go: it was the random */
+        ui.pinit_t = 0;
+    if (ui.pinit_t && !ui.pinit_hint && now - ui.pinit_t >= 250u) {
+        ui.pinit_hint = 1;
+        app_say("HOLD TO INIT", "THIS PAGE");
+    }
+    if (ui.pinit_t && now - ui.pinit_t >= 700u) {
+        ui.pinit_t = 0;
+        page_init();
+    }
+    if (ui.home_t && (!((btn >> B_HOME) & 1u) || !upb))      /* OCT+ + HOME let go: it was the general random */
+        ui.home_t = 0;
+    if (ui.home_t && now - ui.home_t >= 700u) {
+        ui.home_t = 0;
+        random_perc();
     }
     if (!rec && prec && !ui.rec_chord)
         rand_toggle();

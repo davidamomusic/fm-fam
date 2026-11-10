@@ -9,7 +9,7 @@ import base64, html, os, subprocess, sys
 card_png, out_dir = sys.argv[1], sys.argv[2]
 os.makedirs(out_dir, exist_ok=True)
 
-VERSION = "0.2.5"
+VERSION = "0.2.6"
 DESCRIPTION = ("DFAM style 16-step sequencer and a drum synth for the FM-1. It has two oscillators with 16 wave "
                "types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects "
                "chain, random pages, scales, presets and projects. Bluetooth audio is experimental.")
@@ -111,10 +111,17 @@ SECTIONS = [
         ("`OCT+` + `HOME`",
          "The general random: steps, synth sound and kick in one go. Cables, FX, scale and BPM stay. The resonance "
          "stays at 50 or under and the kick's level at 100 or under."),
+        ("`OCT+` + `HOME` hold 0.7 s",
+         "Percussion between the mids and the lows: steps and kick as the general random, and a synth that is a "
+         "drum (a pitch that falls, no attack, a short decay)."),
         ("`OCT+` + `REC` tap",
          "The same general random with a wider draw, when you let go: the resonance up to 85, the kick louder."),
         ("`OCT-` + `REC`",
-         "Randomize only this page: whatever is switched on there (patch bay, FX and scale included)."),
+         "Randomize only this page: whatever is switched on there (patch bay, FX and scale included). The reverb's "
+         "width stays at 20 or under."),
+        ("`OCT-` + `REC` hold 0.7 s",
+         "INIT PAGE, on SYNTH, kick sound, FX and patch-bay pages: the page's knobs go back to the first factory "
+         "preset; in the patch bay, every cable off."),
         ("`OCT-` + `HOME`",
          "A melody: a voice that holds a pitch (no noise, sync or cables), one of six scales with the quantizer on "
          "(the root stays), a phrase built from a four-step figure and a kick on every beat. The kick's sound, the "
