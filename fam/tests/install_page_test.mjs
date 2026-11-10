@@ -64,7 +64,7 @@ const KEPT = {                                                   // the file att
   "fm-fam-0.2.1.fwsc": "e2ff7c525fce930ccfb29db7f205b8279ff789475d8c3491c4c8c711dd80c994",
   "fm-fam-0.2.4.fwsc": "5c63314fcdfd53baf941704cc5cf43281d9de0c42fd4e66996336bed6e9f3a3f",
   "fm-fam-0.2.5.fwsc": "f332d913300e6d34623cb7284b4a7ca7a935b647fe75899059eab5926e74d0a0",
-  "fm-fam-0.2.6.fwsc": "04928fb3680d0c06ae826f2561531cf704cda3e795ca2948b440fdd0f30117d0",
+  "fm-fam-0.2.6.fwsc": "539cc120eca8bed5960b70204007d0f4fffbc89060cf7254ebd437a318693ee9",
   "fm-fam-0.20.fwsc": "5cdbe6025e64a75e7204d6e5515d465501e5a6de256929c944298b5abf1aafa2",
 };
 const dir = path.join(root, "fam/releases");
