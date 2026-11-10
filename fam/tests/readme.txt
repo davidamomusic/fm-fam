@@ -167,7 +167,8 @@ wait 80
 shot rm_home9.png
 spin SELECT 1
 wait 80
-expect page 9
+# (0.2.4: SAVE has six pages; the help pages are gone and these last shots repeat the sixth)
+expect page 5
 shot rm_home10.png
 spin SELECT -10
 wait 60

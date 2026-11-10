@@ -94,13 +94,15 @@ expect page 5
 tap GLO
 expect page 6
 tap GLO
+expect page 7
+tap GLO
 expect page 0
 tap SAVE
 expect mode 8
 tap SAVE
 expect page 1
 spin SELECT 8
-expect page 9
+expect page 5
 tap SAVE
 expect page 0
 # ENV and HOME do nothing for now (0.2.2); SAVE opens HOME

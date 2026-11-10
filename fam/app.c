@@ -1489,7 +1489,7 @@ void app_backup_restored(void)           /* the flash holds the restored set: lo
 /* The screen: a header (mode, page, preset, tempo), a strip of steps, the picture of the page, and a footer of four
  * quadrants, one for each of the knobs K1..K4. */
 enum { M_SEQ, M_SYN, M_PATCH, M_KICK, M_FX, M_PATT, M_RAND, M_SCALE, M_HOME, NMODE };
-static const uint8_t NPAGE[NMODE] = {3, 6, 1, 5, 7, 7, NRP, 2, 10};
+static const uint8_t NPAGE[NMODE] = {3, 6, 1, 5, 7, 8, NRP, 2, 6};
 enum { F_NUM, F_SEMI, F_WAV16, F_WAV6, F_MODE, F_SW, F_TIME, F_NOTE, F_SCL, F_OCT, F_TRN, F_FINE, F_PCT, F_SPREAD, F_SLOPE, F_SLICE, F_ONOFF, F_SPEED };
 static const char *const SRC_NAME[NSRC] = {"NONE", "SEQP", "SEQV", "VEG", "FEG", "AEG", "S&H", "KEG"};
 static const char *const SRC_LONG[NSRC] = {"NONE", "SEQ PITCH", "SEQ VELOC", "VCO ENV", "VCF ENV", "VCA ENV", "S&H NOISE", "KICK ENV"};
@@ -1506,7 +1506,7 @@ static const char *const MODE_NAME[NMODE] = {"SEQ", "SYNTH", "PATCH", "KICK", "F
 static const char *const ACT_NAME[4] = {"LOAD", "SAVE", "RENAME", "CLEAR"};
 static const char *const KIND_NAME[NPK] = {"SYNTH", "KICK", "FX", "PATCH", "SCALE"};
 static const char *const HOME_TITLE[10] = {"PROJECTS", "SYNTH PRESETS", "KICK PRESETS", "FX PRESETS", "PATCH PRESETS", "SCALE PRESETS", "BUTTONS", "STEPS AND KEYS", "KNOBS AND FX", "SOUND"};
-static const char *const PATT_TITLE[7] = {"PATTERNS", "SONG", "PATTERN SOUND 1", "PATTERN SOUND 2", "HEADPHONES AND MIDI", "CLOCK SYNC", "OUTPUTS"};
+static const char *const PATT_TITLE[8] = {"PATTERNS", "SONG", "PATTERN SOUND 1", "PATTERN SOUND 2", "HEADPHONES AND MIDI", "CLOCK SYNC", "OUTPUTS", "FIRMWARE"};
 static const char *const SEQ_TITLE[3] = {"STEP EDIT", "STEP AND PATTERN", "TEMPO"};
 static const char CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-";
 #define NCHARS 38
@@ -1554,7 +1554,7 @@ typedef struct {
 #define KD(l, f, a, d) {l, f, &(a), 127, 0, 127, 0, 0, d}
 static const row_t SYN_ROWS[] = {
     {"OSCILLATORS", {KD("VCO1 FRQ", F_SEMI, sd.syn[P_V1FRQ], DK_V1), KD("VCO2 FRQ", F_SEMI, sd.syn[P_V2FRQ], DK_V2), KN("VCO1 WAVE", F_WAV16, sd.syn[P_V1WAV]), KN("VCO2 WAVE", F_WAV16, sd.syn[P_V2WAV])}, 4},
-    {"FILTER AND NOISE", {KD("CUTOFF", F_NUM, sd.syn[P_CUT], DK_CUT), KR("RESO", F_NUM, sd.syn[P_RES], 0, 85), KZ("NOISE", F_NUM, sd.syn[P_NSE], 10, 70, 61), KD("TYPE", F_MODE, sd.syn[P_MODE], DK_TYPE)}, 4},
+    {"FILTER AND NOISE", {KD("CUTOFF", F_NUM, sd.syn[P_CUT], DK_CUT), KR("RESO", F_NUM, sd.syn[P_RES], 0, 50), KZ("NOISE", F_NUM, sd.syn[P_NSE], 10, 70, 61), KD("TYPE", F_MODE, sd.syn[P_MODE], DK_TYPE)}, 4},
     {"ENVELOPES", {KR("VCO DEC", F_NUM, sd.syn[P_VDEC], 10, 85), KR("VCF DEC", F_NUM, sd.syn[P_FDEC], 20, 100), KR("VCA DEC", F_NUM, sd.syn[P_ADEC], 35, 100), KZ("FM 1>2", F_NUM, sd.syn[P_FM], 10, 65, 54)}, 4},
     {"MIXER", {KR("VCO1 LVL", F_NUM, sd.syn[P_V1LVL], 75, 127), KZ("VCO2 LVL", F_NUM, sd.syn[P_V2LVL], 40, 115, 25), KZ("SYNC", F_SW, sd.syn[P_SYN], 0, 127, 74), KR("VOLUME", F_NUM, sd.syn[P_VOL], 100, 100)}, 4},
     {"MODULATION", {KZ("VCO1 EG", F_NUM, sd.syn[P_V1EG], 4, 80, 49), KZ("VCO2 EG", F_NUM, sd.syn[P_V2EG], 4, 80, 51), KZ("VCF EG", F_NUM, sd.syn[P_FEG], 0, 127, 20), KR("ACCENT", F_NUM, sd.syn[P_ACC], 60, 127)}, 4},
@@ -1562,7 +1562,7 @@ static const row_t SYN_ROWS[] = {
 };
 static const row_t KICK_ROWS[] = {
     {"PITCH AND DECAY", {KR("TUNE", F_NUM, kick_p[K_TUN], 14, 42), KR("SWEEP", F_NUM, kick_p[K_SWP], 15, 120), KR("PITCH DEC", F_NUM, kick_p[K_PDC], 15, 60), KR("AMP DEC", F_NUM, kick_p[K_ADC], 35, 85)}, 4},
-    {"TONE", {KR("CLICK", F_NUM, kick_p[K_CLK], 0, 9), KZ("DRIVE", F_NUM, kick_p[K_DRV], 8, 105, 40), KR("LEVEL", F_NUM, kick_p[K_LVL], 100, 110), KD("WAVE", F_WAV6, kick_p[K_WAV], DK_KWAV)}, 4},
+    {"TONE", {KR("CLICK", F_NUM, kick_p[K_CLK], 0, 9), KZ("DRIVE", F_NUM, kick_p[K_DRV], 8, 105, 40), KR("LEVEL", F_NUM, kick_p[K_LVL], 90, 100), KD("WAVE", F_WAV6, kick_p[K_WAV], DK_KWAV)}, 4},
     {"FM AND NOISE", {KZ("FM AMT", F_NUM, kick_p[K_FMA], 5, 60, 70), KN("FM RATIO", F_NUM, kick_p[K_FMR]), KZ("NOISE", F_NUM, kick_p[K_NSE], 5, 40, 70), KN("TONE", F_NUM, kick_p[K_TON])}, 4},
     {"KICK SEQUENCE", {{0}}, 0},
 };
@@ -2086,6 +2086,12 @@ static void random_run(int all)          /* OCT- + REC: this page; OCT+ + REC (a
         for (int rp = 0; rp < NRP; rp++)
             if (rnd_in_all(rp))
                 n += rnd_page(rp);
+        if (n) {                         /* whatever the amounts say: the resonance stays at 50 or under, the kick's level at 100 */
+            if (sd.syn[P_RES] > 50u)
+                sd.syn[P_RES] = 50;
+            if (kick_p[K_LVL] > 100u)
+                kick_p[K_LVL] = 100;
+        }
         publish();
         app_say("RANDOM", n ? "STEPS + SOUNDS" : "ALL OFF");
     } else {
@@ -2103,6 +2109,95 @@ static void random_run(int all)          /* OCT- + REC: this page; OCT+ + REC (a
             app_say("RANDOM", n ? rp_title(rp) : "ALL OFF");
         }
     }
+    touch();
+    dirty_all();
+}
+
+/* OCT- + HOME: a random for melodies. The synth becomes a voice that holds a pitch (plain waves, the second oscillator in
+ * unison, a fifth or an octave, no noise, sync or pitch envelope, little FM, a low-pass, a longer decay), the cables are
+ * switched off, the scale is one of six with the quantizer on (the root stays), and the steps are a phrase: a four-step
+ * figure that moves by neighbouring notes of the scale, said again and varied, ending on the root. The kick's sound and
+ * the effects are left as they are; its line becomes four on the floor. */
+static void random_melody(void)
+{
+    static const uint8_t WV[10] = {0, 1, 2, 3, 4, 5, 6, 8, 10, 15};      /* TRI SAW SQR PLS SIN PWM SSAW ORGAN BRASS BELL */
+    static const uint8_t SCL[6] = {1, 2, 3, 6, 10, 11};                  /* MAJOR MINOR DORIAN MIXOLYD PENT MAJ PENT MIN */
+    static const int8_t IV[5] = {0, 0, 12, -12, 7};
+    pat_t *p = cur_pat();
+    int8_t deg[24];
+    int nd = 0, fig[4], d, root = (int)sd.sc[SC_ROOT] - (sd.sc[SC_ROOT] > 6u ? 12 : 0);
+    uint32_t i, n;
+    uint8_t *y = sd.syn;
+    /* the voice */
+    y[P_V1FRQ] = (uint8_t)(64 + 2 * ((int)(rnd() % 13u) - 6));
+    y[P_V1WAV] = (uint8_t)(WV[rnd() % 10u] * 8u + 4u);
+    y[P_V1LVL] = (uint8_t)(95 + rnd() % 33u);
+    y[P_V1EG] = y[P_V2EG] = 0;
+    y[P_V2FRQ] = (uint8_t)clamp((int)y[P_V1FRQ] + 2 * IV[rnd() % 5u] + (rnd() % 10u < 3u ? 1 : 0), 0, 127);
+    y[P_V2WAV] = (uint8_t)(WV[rnd() % 10u] * 8u + 4u);
+    y[P_V2LVL] = (uint8_t)(rnd() % 10u < 4u ? 0 : 50 + rnd() % 51u);
+    y[P_FM] = (uint8_t)(rnd() % 10u < 8u ? 0 : 5 + rnd() % 21u);
+    y[P_SYN] = 0;
+    y[P_NSE] = 0;
+    y[P_CUT] = (uint8_t)(60 + rnd() % 51u);
+    y[P_RES] = (uint8_t)(rnd() % 41u);
+    y[P_MODE] = (uint8_t)((rnd() & 1u) * 32u + 16u);     /* LP4 or LP2 */
+    y[P_FEG] = (uint8_t)(20 + rnd() % 61u);
+    y[P_FDEC] = (uint8_t)(40 + rnd() % 61u);
+    y[P_ATK] = (uint8_t)(rnd() % 10u < 7u ? 0 : 8 + rnd() % 23u);
+    y[P_ADEC] = (uint8_t)(55 + rnd() % 56u);
+    y[P_VOL] = 100;
+    y[P_DRV] = (uint8_t)(rnd() % 31u);
+    y[P_ACC] = (uint8_t)(60 + rnd() % 41u);
+    y[P_GLD] = (uint8_t)(rnd() % 10u < 6u ? 0 : 10 + rnd() % 31u);
+    y[P_TUN] = 64;
+    sd.pon = 0;                          /* no cable bends the pitch */
+    /* the scale, and its notes over an octave and a half */
+    sd.sc[SC_TYPE] = SCL[rnd() % 6u];
+    sd.sc[SC_QUANT] = 1;
+    for (d = 0; d < 20 && nd < 24; d++)
+        if ((SCALES[sd.sc[SC_TYPE]].m >> (d % 12)) & 1u)
+            deg[nd++] = (int8_t)d;
+    /* the phrase */
+    p->len = rnd() % 10u < 7u ? 16 : 8;
+    p->swing = (uint8_t)(rnd() % 21u);
+    if (sq.step >= p->len)
+        sq.step = (uint8_t)(p->len - 1u);
+    if (ui.sel >= p->len)
+        ui.sel = (uint8_t)(p->len - 1u);
+    d = 0;
+    for (i = 0; i < 4u; i++) {           /* the figure: mostly a step up or down the scale, now and then a leap or the same note */
+        uint32_t r = rnd() % 10u;
+        fig[i] = d;
+        d += r < 6u ? ((rnd() & 1u) ? 1 : -1) : r < 8u ? ((rnd() & 1u) ? 2 : -2) : r < 9u ? ((rnd() & 1u) ? 4 : -3) : 0;
+        d = clamp(d, 0, nd - 1);
+    }
+    for (i = 0, n = p->len; i < n; i++) {
+        int bar = (int)(i / 4u), g = fig[i % 4u] + (bar == 1 ? 2 : bar == 3 ? 1 : 0);    /* said again, a little higher */
+        if (bar && rnd() % 5u == 0)
+            g += (rnd() & 1u) ? 1 : -1;  /* and varied */
+        if (i == n - 1u)
+            g = rnd() % 3u ? 0 : nd > 4 ? 4 : 0;         /* the end: home (or, a time in three, up the scale) */
+        g = clamp(g, 0, nd - 1);
+        p->pit[i] = (int8_t)(root + deg[g]);
+        p->trig[i] = (uint8_t)(i == 0 ? 2 : rnd() % 6u == 0 ? 0 : (i % 4u == 0 && rnd() % 3u == 0) ? 2 : 1);
+        p->vel[i] = (uint8_t)(i % 4u == 0 ? 105 + rnd() % 16u : 72 + rnd() % 30u);
+        p->gate[i] = (uint8_t)(rnd() % 3u == 0 ? GATE_FULL : 18 + rnd() % 15u);
+        p->rat[i] = 0;
+        p->cond[i] = 0;
+        p->lk_p[i][0] = p->lk_p[i][1] = p->lk_v[i][0] = p->lk_v[i][1] = 0;
+    }
+    /* the kick: four on the floor */
+    p->klen = 16;
+    for (i = 0; i < NSTEP; i++) {
+        p->ktrig[i] = (uint8_t)(i % 4u == 0 ? (i == 0 ? 2 : 1) : 0);
+        p->kcond[i] = 0;
+        p->krat[i] = 0;
+    }
+    if (sq.kstep >= p->klen)
+        sq.kstep = 0;
+    publish();
+    app_say("RANDOM", "MELODY");
     touch();
     dirty_all();
 }
@@ -2363,7 +2458,10 @@ static void on_button(uint32_t b)
     case B_FX: mode_key(M_FX, 0xFFu); break;
     case B_ARP: mode_key(M_KICK, 0xFFu); break;
     case B_SEL: mode_key(M_SCALE, 0xFFu); break;
-    case B_HOME: break;                          /* (does nothing for now: SAVE opens HOME) */
+    case B_HOME:                                 /* alone it does nothing for now (SAVE opens its pages); with OCT- held: a melody */
+        if ((plat_buttons() >> B_OCTDN) & 1u)
+            random_melody();
+        break;
     case B_GLO: mode_key(M_PATT, 0xFFu); break;
     case B_PLAY:
         ui.play_t = plat_ms();
@@ -2863,6 +2961,8 @@ static void patt_knob(uint32_t kn, int32_t e)   /* PATTERNS: pick, command, bank
         audio_knob(kn, e);
         return;
     }
+    if (pg() == 7u)
+        return;
     if (pg() == 0) {
         if (kn == 0)
             pick_pattern(clamp(((sq.queued >= 0 ? sq.queued : sq.cur) + e), 0, NPAT - 1));
@@ -3384,7 +3484,7 @@ static void draw_head(void)
     char t[40], n[12];
     int32_t w, x, i;
     uint16_t mc = head_col();
-    const char *mn = ui.mode != M_PATT ? MODE_NAME[ui.mode] : pg() == 4u ? "BLUETOOTH" : pg() == 5u ? "MIDI" : pg() == 6u ? "AUDIO" : MODE_NAME[ui.mode];
+    const char *mn = ui.mode != M_PATT ? MODE_NAME[ui.mode] : pg() == 4u ? "BLUETOOTH" : pg() == 5u ? "MIDI" : pg() == 6u ? "AUDIO" : pg() == 7u ? "VERSION" : MODE_NAME[ui.mode];
     cv_begin(240, 32, C_BLACK);
     w = text_w(&FONT_B, mn);
     cv_rect(3, 1, w + 10, 18, mc);
@@ -3631,6 +3731,11 @@ static void foot_cells(fcell_t *c)
         } else if (pg() == 5u) {           /* MIDI */
             cell_set(&c[0], "MIDI SYNC", xs.on ? "ON" : "OFF", xs.on ? 127 : 0, 0);
             for (k = 1; k < 4; k++) {
+                cell_set(&c[k], "-", "", -1, 0);
+                c[k].dim = 1;
+            }
+        } else if (pg() == 7u) {           /* VERSION */
+            for (k = 0; k < 4; k++) {
                 cell_set(&c[k], "-", "", -1, 0);
                 c[k].dim = 1;
             }
@@ -4566,6 +4671,23 @@ static void vis_midi(void)               /* MIDI: the sync, the clock that comes
     cv_text(6, 94, &FONT_T, "OR BLUETOOTH. A STEP SOUNDS 6.5 MS AFTER", CL_L);
     cv_text(6, 108, &FONT_T, "ITS CLOCK, ALWAYS THE SAME", CL_L);
 }
+static void vis_version(void)            /* VERSION: the firmware and what the audio costs */
+{
+    char t[24], n[12];
+    int32_t x;
+    cv_text(6, 2, &FONT_M, "FM-FAM", CL_G);
+    x = cv_text(6, 30, &FONT_M, "VERSION ", CL_L);
+    cv_text(x, 30, &FONT_M, APP_VERSION, CL_W);
+    scopy(t, "", 24);
+    int_text((int32_t)plat_cpu_pct(), n);
+    text_cat(t, n);
+    text_cat(t, " %");
+    x = cv_text(6, 58, &FONT_M, "CPU ", CL_L);
+    cv_text(x, 58, &FONT_M, t, plat_cpu_pct() > 80u ? CL_R : CL_W);
+    cv_rect(6, 88, 228, 1, CL_PNL);
+    cv_text(6, 93, &FONT_T, "BETA SOFTWARE: IT CAN FAIL, USE IT AT", CL_O);
+    cv_text(6, 106, &FONT_T, "YOUR OWN RISK. NO WARRANTY (MPL-2.0)", CL_O);
+}
 static void vis_audio(void)              /* AUDIO: where the sound goes */
 {
     int uo = !(bts.quality & BQ_USB_OFF), lo = !(bts.quality & BQ_LINE_OFF), fu = (bts.quality & BQ_USB_FULL) != 0;
@@ -4593,6 +4715,10 @@ static void vis_patt(void)
     }
     if (pg() == 6u) {
         vis_audio();
+        return;
+    }
+    if (pg() == 7u) {
+        vis_version();
         return;
     }
     if (pg() == 0) {
@@ -4680,29 +4806,58 @@ static void vis_patt(void)
 }
 
 /* RANDOM: for each knob of the page it mirrors: on or off, and how much */
+static void rnd_range(int rp, int q, char *t)    /* what a knob of a random page draws, in a few letters */
+{
+    const row_t *r = rp_row(rp);
+    char n[12];
+    scopy(t, "", 16);
+    if (!r)
+        return;
+    {
+        const knob_t *kn = &r->k[q];
+        if (kn->dk != DK_RANGE) {
+            scopy(t, "AUTO", 16);        /* (a draw of its own: the pitch, the cutoff, the filter type, the kick's wave) */
+        } else if (fmt_disc(kn->fmt)) {
+            scopy(t, "ANY", 16);
+        } else if (kn->lo == kn->hi) {
+            int_text(kn->lo, n);
+            text_cat(t, n);
+        } else {
+            int_text(kn->lo, n);
+            text_cat(t, n);
+            text_cat(t, "-");
+            int_text(kn->hi, n);
+            text_cat(t, n);
+        }
+    }
+}
 static void vis_rand(void)
 {
-    int rp = (int)pg(), q;
+    int rp = (int)pg(), q, all = rnd_in_all(rp);
     char t[40];
+    const char *tag = all ? "IN OCT+ + REC" : "NOT IN OCT+ + REC";
     scopy(t, rp_mode(rp), 40);
     text_cat(t, "  ");
     text_cat(t, rp_title(rp));
     cv_text(4, 2, &FONT_XS, t, CL_W);
+    cv_text(236 - text_w(&FONT_T, tag), 5, &FONT_T, tag, all ? CL_G : CL_O);     /* is this page part of the general random? */
     for (q = 0; q < 4; q++) {
         int on = (sd.rnd_en[rp] >> q) & 1, amt = sd.rnd_amt[rp][q];
-        int32_t x = 4 + q * 58, h = amt * 50 / 127;
+        int32_t x = 4 + q * 58, h = amt * 36 / 127;
         uint16_t col = on ? QC[q] : CL_DG;
         cv_rect(x, 22, 54, 14, on ? col : CL_DG);
         if (!on)
             cv_rect(x + 1, 23, 52, 12, C_BLACK);
         centre_text(x, 54, 24, &FONT_T, on ? "ON" : "OFF", on ? C_BLACK : CL_L);
-        cv_rect(x + 10, 40, 34, 52, CL_DG);
-        cv_rect(x + 11, 41, 32, 50, C_BLACK);
-        cv_rect(x + 12, 91 - h, 30, h, on ? shade(col, 14) : shade(CL_L, 4));
-        cv_rect(x + 12, 91 - h, 30, 2, on ? col : CL_L);
+        cv_rect(x + 10, 40, 34, 38, CL_DG);
+        cv_rect(x + 11, 41, 32, 36, C_BLACK);
+        cv_rect(x + 12, 77 - h, 30, h, on ? shade(col, 14) : shade(CL_L, 4));
+        cv_rect(x + 12, 77 - h, 30, 2, on ? col : CL_L);
+        rnd_range(rp, q, t);             /* the values it draws */
+        centre_text(x, 54, 81, &FONT_T, t, on ? CL_W : CL_L);
     }
-    cv_text(4, 96, &FONT_T, "KEYS 1-4 ON/OFF  5 ALL  6 DO IT  7 RANDOMIZE", CL_L);
-    cv_text(4, 110, &FONT_T, "OCT- + REC: PAGE   OCT+ + REC TAP: RANDOMIZE", CL_Y);
+    cv_text(4, 96, &FONT_T, "KEYS 1-4 ON/OFF  5 ALL  6 THIS PAGE  7 GENERAL", CL_L);
+    cv_text(4, 110, &FONT_T, all ? "OCT- + REC: THIS PAGE  OCT+ + REC: GENERAL" : "OCT- + REC: THIS PAGE (ONLY WAY TO DRAW IT)", CL_Y);
 }
 
 /* SCALE: the twelve notes (the root, the notes of the scale), and a melody through the scale, the spread and the transposition */
@@ -4837,35 +4992,6 @@ static void vis_home(void)
     }
 }
 
-/* HELP */
-static const char *const HELP[4][8] = {
-    {"SEQ STEPS  EDIT SYNTH (ENV, HOME: OFF)", "LFO PATCH  FX EFFECTS  ARP KICK", "GLO PATTERNS  SCL SCALE  SAVE THIS",
-     "PRESS A MODE KEY AGAIN: NEXT PAGE", "REC OPENS THE RANDOM SETUP PAGES", "OCT- + REC: RANDOM OF THIS PAGE",
-     "OCT+ + REC TAP: SEQ SYNTH KICK", "OCT+ + REC HELD: INIT THIS PATTERN"},
-    {"WHITE KEYS = STEPS (SEQ, KICK)", "TAP A KEY: OFF > TRIG > ACCENT", "HOLD A KEY + TURN K1-K4: THAT STEP",
-     "HOLD A KEY + SYNTH KNOB: A LOCK", "HOLD A KEY + REC: CLEAR THE STEP", "FX: KEYS 1-6 ON/OFF, 4 = STUTTER",
-     "RANDOM: KEYS 1-4 ON/OFF, 5 ALL", "SCALE: ANY KEY SETS THE ROOT"},
-    {"K1-K4: THE FOUR KNOBS OF THE PAGE", "OCT- HELD + K1-K4: FASTER, SEQ: K4 NUDGE", "ALGORITHM: THE STEP, OR THE TEMPO",
-     "TEMPO: SEQ PAGE 3 (K1 +1, K2 +10)", "PLAY RUN/STOP, HELD: RESET", "FX MIXER: LAST WHITE KEY = DLY REV",
-     "DJF AND STUT OFF AT ONCE", "IT SAVES BY ITSELF WHEN STOPPED"},
-    {"2 VCO, 16 WAVES, SYNC, FM, NOISE", "FILTER LP4 LP2 BP HP, 3 ENVELOPES", "KICK: STEP PITCH, VOL, COND, NUDGE",
-     "PATCH: 8 CABLES, SOURCE AND DEPTH", "FX: COMP DLY REV STUT DJ-HPF LIMIT", "EACH PATTERN HAS ITS OWN SOUND",
-     "GLO 5 BLUETOOTH 6 MIDI SYNC 7 AUDIO", "FM-FAM V" APP_VERSION}};
-static void vis_help(void)
-{
-    int32_t i, p = (int32_t)pg() - 6;
-    for (i = 0; i < 8; i++)
-        if (HELP[p][i])
-            cv_text(6, 2 + i * 15, &FONT_XS, HELP[p][i], i == 7 && p == 3 ? CL_O : CL_W);
-    if (p == 3) {
-        char t[16], n[12];
-        scopy(t, "CPU ", 16);
-        int_text((int32_t)plat_cpu_pct(), n);
-        text_cat(t, n);
-        text_cat(t, "%");
-        cv_text(236 - text_w(&FONT_XS, t), 107, &FONT_XS, t, CL_L);
-    }
-}
 
 static void draw_vis(void)
 {
@@ -4890,10 +5016,7 @@ static void draw_vis(void)
     case M_RAND: vis_rand(); break;
     case M_SCALE: vis_scale(); break;
     default:
-        if (pg() >= 6u)
-            vis_help();
-        else
-            vis_home();
+        vis_home();
         break;
     }
     cv_blit(0, 42);
@@ -4945,7 +5068,7 @@ void app_frame(void)
         ui.cpu_t = now;
         if (plat_cpu_pct() != ui.cpu_last) {
             ui.cpu_last = plat_cpu_pct();
-            if (ui.mode == M_HOME && pg() == 9u)
+            if (ui.mode == M_PATT && pg() == 7u)
                 ui.d_vis = 1;
         }
     }
@@ -5082,11 +5205,11 @@ static int rnd_selftest(const char *what)
             nz_atk += syn[P_ATK] != 0;
             hp += (syn[P_MODE] >> 5) == 3;
             hat_runs += rnd_hat;
-            bad += syn[P_CUT] < 15 || syn[P_CUT] > 120 || syn[P_RES] > 85 || syn[P_V1LVL] < 75 || syn[P_VOL] != 100;
+            bad += syn[P_CUT] < 15 || syn[P_CUT] > 120 || syn[P_RES] > 50 || syn[P_V1LVL] < 75 || syn[P_VOL] != 100;
             bad += rnd_hat ? ((syn[P_MODE] >> 5) != 3 || syn[P_CUT] > 55) : ((syn[P_MODE] >> 5) > 1 || syn[P_CUT] < 62);
             bad += syn[P_VDEC] < 10 || syn[P_VDEC] > 85 || syn[P_ADEC] < 35 || syn[P_ADEC] > 100;
             bad += kick_p[K_TUN] < 14 || kick_p[K_TUN] > 42 || kick_p[K_ADC] < 35 || kick_p[K_ADC] > 85 || kick_p[K_WAV] > 63;
-            bad += kick_p[K_LVL] < 100 || kick_p[K_LVL] > 110;
+            bad += kick_p[K_LVL] < 90 || kick_p[K_LVL] > 100;
             n++;
         }
         c0 = nz_nse;
