@@ -92,6 +92,8 @@ expect page 4
 tap GLO
 expect page 5
 tap GLO
+expect page 6
+tap GLO
 expect page 0
 tap SAVE
 expect mode 8

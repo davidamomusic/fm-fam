@@ -1,4 +1,4 @@
-# FM-FAM v0.2.2: the MIDI page (GLO page 6) and the clock sync, BLUETOOTH's own name, ENV and HOME off, SAVE opens HOME,
+# FM-FAM v0.2.2 and v0.2.3: the MIDI page (GLO page 6), the AUDIO page (page 7) and the clock sync, BLUETOOTH's own name, ENV and HOME off, SAVE opens HOME,
 # and the kick's click in a random
 #   fam/build/host/fm-fam_host fam/tests/v022a.txt DIRECTORY
 wait 3000
@@ -40,7 +40,7 @@ spin K1 -1
 expect sync 0
 spin K1 2
 expect sync 1
-# K2 is Link's place: nothing changes
+# the other knobs do nothing here
 spin K2 1
 expect sync 1
 # a clock every 21 ms is 119 BPM: the FM-1 follows it, its own tempo stays what it was
@@ -122,3 +122,33 @@ release REC
 release OCT-
 wait 100
 expect kick4 <10
+# the AUDIO page (GLO page 7): everything on at first; K1 the USB recording, K2 the speaker and the jack, K3 the USB level
+tap GLO
+spin SELECT -9
+wait 60
+spin SELECT 6
+wait 80
+expect mode 5
+expect page 6
+expect out_off 0
+expect usb_audio_full 0
+shot audio_on.png
+spin K1 -1
+expect out_off 1
+spin K2 -1
+expect out_off 3
+spin K1 1
+expect out_off 2
+spin K3 1
+expect usb_audio_full 1
+wait 80
+shot audio_off.png
+spin K2 1
+spin K3 -1
+expect out_off 0
+expect usb_audio_full 0
+# SAVE's pages are called SAVE
+tap SAVE
+expect mode 8
+wait 80
+shot save.png

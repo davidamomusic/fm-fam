@@ -449,6 +449,12 @@ void plat_host_patience(uint32_t try_ms, uint32_t total_ms);   /* each try's wai
 /* USB audio full (FM1B_UAC): 1, the USB audio input at full level (the app's render at gain 4096), MASTER for the
  * speaker and headphones only; 0, both at MASTER (the default) */
 void plat_usb_audio_full(int on);
+/* the outputs switched off (0: all on, the default): PLAT_OUT_USB, the USB recording gets silence (the computer still
+ * sees the device and its stream); PLAT_OUT_LINE, the FM-1's own output, the speaker and the headphone jack together
+ * (one converter feeds both; the speaker goes off by itself with a plug in). Bluetooth audio is not touched */
+#define PLAT_OUT_USB 1u
+#define PLAT_OUT_LINE 2u
+void plat_out_off(uint32_t mask);
 /* the computer's audio (FM1B_UAC_OUT, usb_audio_out: the computer plays through the FM-1): the level it is mixed in
  * at, 0 muted .. 4096 as sent (the default; above is 4096), times MASTER. Muted, the FM-1 still takes the stream, so
  * the computer sees no change and turning it up again starts in step. The USB recording (usb_audio_in) is taken

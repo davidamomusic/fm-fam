@@ -1335,6 +1335,8 @@ int plat_host_read(uint32_t addr, uint8_t *dst, uint32_t n) { (void)addr, (void)
 void plat_host_patience(uint32_t try_ms, uint32_t total_ms) { (void)try_ms, (void)total_ms; }
 static int uac_full;                            /* plat_usb_audio_full: the render at full level, MASTER after it */
 void plat_usb_audio_full(int on) { uac_full = on != 0; }
+static uint32_t out_off_mask;                   /* plat_out_off: kept for a test (expect out_off) */
+void plat_out_off(uint32_t mask) { out_off_mask = mask & (PLAT_OUT_USB | PLAT_OUT_LINE); }
 static uint32_t usb_play_q12 = 4096u;            /* plat_usb_play_gain: no USB audio on the host; kept for a test */
 void plat_usb_play_gain(uint32_t q12) { usb_play_q12 = q12 > 4096u ? 4096u : q12; }
 #if FM1B_UAC_CH > 2
@@ -2269,6 +2271,8 @@ static int expect(const char *what, const char *val)
         got = (int)usb_play_q12;
     else if (!strcmp(what, "usb_audio_full"))       /* plat_usb_audio_full: 1 full, 0 at MASTER */
         got = uac_full;
+    else if (!strcmp(what, "out_off"))              /* plat_out_off: 1 USB, 2 the FM-1's own output */
+        got = (int)out_off_mask;
     else if (!strcmp(what, "midi_out"))
         got = (int)midi_out_count;
     else if (!strcmp(what, "midi_in_from"))         /* plat_midi_in_from: 1 USB, 2 BLE, 8 BLE-DEV, 0 TRS */

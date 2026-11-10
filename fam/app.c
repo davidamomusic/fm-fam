@@ -553,20 +553,34 @@ static struct {
     volatile uint32_t ktrigs;
 } sq;
 
-/* MIDI sync (PATTERNS page 6): with it on, the clock that comes in (USB, the MIDI jack, Bluetooth) plays the steps, a 16th
- * every six clocks, and its start, continue and stop run the sequencer. Without a clock for half a second the tempo is the
+/* MIDI sync (GLO page 6): with it on, the clock that comes in (USB, the MIDI jack, Bluetooth) plays the steps, a 16th
+ * every six clocks, and its start, continue and stop run the sequencer. Each clock has the time it landed on the FM-1
+ * (fm1.toml midi_stamp): a step sounds XS_LAT samples after its clock, the same for every step whenever in the audio
+ * block the clock came, so the steps keep the clock's own spacing. Without a clock for half a second the tempo is the
  * FM-1's own again. The render (the audio interrupt) owns all of it but `on`. */
+#ifndef FM1B_MIDI_STAMP
+#define FM1B_MIDI_STAMP 0
+#endif
+#if FM1B_MIDI_STAMP
+#define XS_UNIT (24.0f * 1000000.0f / 44100.0f)      /* the clock's times are in plat_ticks24's ticks: this many a sample */
+#else
+#define XS_UNIT 1.0f                     /* (no stamps, the host: in samples, as the render reads them) */
+#endif
+#define XS_LAT 288.0f                    /* a block and a bit: a clock is read at most that long after it landed */
 #define XS_WAIT 1.0e9f                   /* sq.left while the next step waits for the clock */
 #define XS_WIN 96                        /* the tempo is measured over this many clocks (a bar), once twelve have come */
 static struct {
     volatile uint8_t on;                 /* the setting (kept with Bluetooth's, in OBJ_BT) */
     volatile uint8_t live;               /* a clock is coming in */
-    volatile uint16_t bpm;               /* its tempo, 0 not measured yet */
+    volatile uint16_t bpm;               /* its tempo to the nearest BPM, 0 not measured yet */
     uint8_t ck;                          /* clocks since the last 16th, 0..5 */
     uint8_t n, w;                        /* clock times kept, and where the next one goes */
-    uint32_t now, last;                  /* samples rendered; when the last clock came */
+    uint32_t now, last;                  /* samples rendered; when the last clock was read */
+    uint32_t tnow;                       /* this block's start, on the clock's time base */
+    float per;                           /* samples a clock, as measured (0 not yet) */
     uint32_t t[XS_WIN];
 } xs;
+static volatile uint32_t loud_at;        /* xs.now when the output was last above a whisper (the autosave waits for silence) */
 
 static void tempo_set(void)
 {
@@ -1046,6 +1060,15 @@ typedef struct {
 } btst_t;
 static btst_t bts;
 #define BT_QUAL ((uint32_t)bts.quality & 3u)   /* the stream's quality (bit 7 of the byte is the MIDI sync) */
+#define BQ_SYNC 0x80u                    /* the same byte's other bits: the MIDI sync on, */
+#define BQ_LINE_OFF 0x40u                /* the speaker and the jack off, */
+#define BQ_USB_OFF 0x20u                 /* the USB recording off, */
+#define BQ_USB_FULL 0x10u                /* the USB recording at full level, whatever MASTER says */
+static void out_apply(void)              /* the AUDIO page's switches to the platform */
+{
+    plat_out_off(((bts.quality & BQ_USB_OFF) ? PLAT_OUT_USB : 0u) | ((bts.quality & BQ_LINE_OFF) ? PLAT_OUT_LINE : 0u));
+    plat_usb_audio_full((bts.quality & BQ_USB_FULL) != 0);
+}
 static uint8_t bts_dirty;
 static uint8_t bt_up, bt_scanned;        /* the audio radio has been asked to start; a scan was asked for since it was switched on */
 static uint32_t bts_t;
@@ -1077,9 +1100,10 @@ static void bt_load(void)
         bts.on = 0;
     if (bts.has > 1u)
         bts.has = 0;
-    if ((bts.quality & 0x7Fu) > 2u)       /* (bit 7: the MIDI sync, PATTERNS page 6) */
-        bts.quality &= 0x80u;
-    xs.on = (uint8_t)(bts.quality >> 7);
+    if ((bts.quality & 0x0Fu) > 2u)       /* (bits 4..7: the AUDIO and MIDI pages' switches, BQ_*) */
+        bts.quality &= 0xF0u;
+    xs.on = (uint8_t)((bts.quality & BQ_SYNC) != 0);
+    out_apply();
     if (bts.midioff > 1u)
         bts.midioff = 0;
     bts_dirty = 0;
@@ -1274,42 +1298,48 @@ static void sync_off(void)               /* no clock any more (or the setting of
 {
     xs.live = 0;
     xs.bpm = 0;
+    xs.per = 0.0f;
     xs.n = xs.w = xs.ck = 0;
     if (sq.left > XS_WAIT * 0.5f)
         sq.left = 0.0f;
     tempo_set();
 }
-static void sync_rt(uint32_t b)          /* a real-time byte, with the sync on */
+static float sync_at(uint32_t t)         /* samples from this block's start to where what landed at t sounds */
+{
+    float d = XS_LAT - (float)(uint32_t)(xs.tnow - t) * (1.0f / XS_UNIT);
+    return d > 0.0f ? d : 0.0f;
+}
+static void sync_rt(uint32_t b, uint32_t t)      /* a real-time byte that landed at t, with the sync on */
 {
     if (b == 0xF8u) {
-        if (xs.live && xs.n) {           /* the tempo: a whole number of BPM, changed only when the measure moves away from it */
-            uint32_t k = xs.n < XS_WIN ? xs.n : XS_WIN, span = xs.now - xs.t[(xs.w + XS_WIN - k) % XS_WIN];
-            if (k >= 12u && span) {
-                float est = 44100.0f * 60.0f / 24.0f * (float)k / (float)span, d = est - (float)xs.bpm;
-                if (d > 0.7f || d < -0.7f) {
-                    int32_t v = (int32_t)(est + 0.5f);
-                    xs.bpm = (uint16_t)(v < 20 ? 20 : v > 400 ? 400 : v);
-                    sq.len = 44100.0f * 60.0f / ((float)xs.bpm * 4.0f);
-                    dsp_tempo(sq.len);
-                }
-            }
-        }
         if (!xs.live) {
             xs.live = 1;
             xs.n = xs.w = 0;
+            xs.per = 0.0f;
             if (sq.running && sq.left < XS_WAIT * 0.5f)      /* running on its own tempo: from here on the clock's steps */
                 sq.left = XS_WAIT;
         }
-        xs.t[xs.w] = xs.now;
+        if (xs.n >= 12u) {               /* the tempo, for the gates, the ratchets and the delay: the clock's period over up
+                                          * to a bar, taken when it has moved (the steps themselves need no tempo) */
+            uint32_t k = xs.n < XS_WIN ? xs.n : XS_WIN, span = t - xs.t[(xs.w + XS_WIN - k) % XS_WIN];
+            float per = (float)span * (1.0f / XS_UNIT) / (float)k, tol = k >= 48u ? 0.004f : 0.02f;
+            if (per > 18.0f && per < 6000.0f && (xs.per == 0.0f || per > xs.per * (1.0f + tol) || per < xs.per * (1.0f - tol))) {
+                xs.per = per;
+                xs.bpm = (uint16_t)(44100.0f * 60.0f / 24.0f / per + 0.5f);
+                sq.len = 6.0f * per;
+                dsp_tempo(sq.len);
+            }
+        }
+        xs.t[xs.w] = t;
         xs.w = (uint8_t)((xs.w + 1u) % XS_WIN);
         if (xs.n < XS_WIN)
             xs.n++;
         xs.last = xs.now;
         if (xs.ck == 0u && sq.running) { /* a 16th: the next step, an odd one late by the swing */
-            uint32_t s = (uint32_t)sq.step + 1u;
-            if (s >= pats[sq.cur].len)
-                s = 0;
-            sq.left = (s & 1u) ? sq.len * (float)pats[sq.cur].swing * (0.33f / 127.0f) : 0.0f;
+            uint32_t st = (uint32_t)sq.step + 1u;
+            if (st >= pats[sq.cur].len)
+                st = 0;
+            sq.left = sync_at(t) + ((st & 1u) ? sq.len * (float)pats[sq.cur].swing * (0.33f / 127.0f) : 0.0f);
         }
         xs.ck = (uint8_t)((xs.ck + 1u) % 6u);
     } else if (b == 0xFAu) {             /* start: from the first step, at the next clock */
@@ -1333,7 +1363,7 @@ static void midi_in(void)
         uint32_t st = (pkt >> 8) & 0xF0u, d1 = (pkt >> 16) & 0x7Fu, d2 = pkt >> 24;
         if (((pkt >> 8) & 0xFFu) >= 0xF8u) {
             if (xs.on)
-                sync_rt((pkt >> 8) & 0xFFu);
+                sync_rt((pkt >> 8) & 0xFFu, FM1B_MIDI_STAMP ? plat_midi_in_t24() : xs.now);
             continue;
         }
         if (st == 0x90u && d2) {
@@ -1352,6 +1382,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
     float gain = (float)master_q12 / 4096.0f * 8300000.0f;
     uint32_t done = 0;
+    xs.tnow = FM1B_MIDI_STAMP ? plat_ticks24() : xs.now;
     midi_in();
     if (xs.live && (!xs.on || xs.now - xs.last > 22050u))    /* half a second without a clock */
         sync_off();
@@ -1394,6 +1425,15 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                 sq.kleft -= (float)run;
         }
         done += run;
+    }
+    {                                    /* is anything to be heard? (a flash write stops the sound: the autosave asks) */
+        int32_t pk = 0;
+        for (uint32_t i = 0; i < 2u * n; i += 4u) {
+            int32_t v = lr[i] < 0 ? -lr[i] : lr[i], w = lr[i + 1u] < 0 ? -lr[i + 1u] : lr[i + 1u];
+            pk |= v | w;
+        }
+        if (pk > 4096)                   /* (about -66 dB of full scale) */
+            loud_at = xs.now;
     }
 }
 
@@ -1449,7 +1489,7 @@ void app_backup_restored(void)           /* the flash holds the restored set: lo
 /* The screen: a header (mode, page, preset, tempo), a strip of steps, the picture of the page, and a footer of four
  * quadrants, one for each of the knobs K1..K4. */
 enum { M_SEQ, M_SYN, M_PATCH, M_KICK, M_FX, M_PATT, M_RAND, M_SCALE, M_HOME, NMODE };
-static const uint8_t NPAGE[NMODE] = {3, 6, 1, 5, 7, 6, NRP, 2, 10};
+static const uint8_t NPAGE[NMODE] = {3, 6, 1, 5, 7, 7, NRP, 2, 10};
 enum { F_NUM, F_SEMI, F_WAV16, F_WAV6, F_MODE, F_SW, F_TIME, F_NOTE, F_SCL, F_OCT, F_TRN, F_FINE, F_PCT, F_SPREAD, F_SLOPE, F_SLICE, F_ONOFF, F_SPEED };
 static const char *const SRC_NAME[NSRC] = {"NONE", "SEQP", "SEQV", "VEG", "FEG", "AEG", "S&H", "KEG"};
 static const char *const SRC_LONG[NSRC] = {"NONE", "SEQ PITCH", "SEQ VELOC", "VCO ENV", "VCF ENV", "VCA ENV", "S&H NOISE", "KICK ENV"};
@@ -1462,11 +1502,11 @@ static const char *const TIME8[8] = {"1/16", "1/8", "3/16", "1/4", "3/8", "1/2",
 static const char *const SLICE8[8] = {"1/8", "3/32", "1/16", "3/64", "1/32", "3/128", "1/64", "1/128"};
 static const char *const CMD_NAME[5] = {"PLAY", "COPY", "PASTE", "CLEAR", "RAND"};
 static const char *const FX_NAME[6] = {"CMP", "DLY", "REV", "STU", "DJF", "LIM"};
-static const char *const MODE_NAME[NMODE] = {"SEQ", "SYNTH", "PATCH", "KICK", "FX", "PATTERNS", "RANDOM", "SCALE", "HOME"};
+static const char *const MODE_NAME[NMODE] = {"SEQ", "SYNTH", "PATCH", "KICK", "FX", "PATTERNS", "RANDOM", "SCALE", "SAVE"};
 static const char *const ACT_NAME[4] = {"LOAD", "SAVE", "RENAME", "CLEAR"};
 static const char *const KIND_NAME[NPK] = {"SYNTH", "KICK", "FX", "PATCH", "SCALE"};
 static const char *const HOME_TITLE[10] = {"PROJECTS", "SYNTH PRESETS", "KICK PRESETS", "FX PRESETS", "PATCH PRESETS", "SCALE PRESETS", "BUTTONS", "STEPS AND KEYS", "KNOBS AND FX", "SOUND"};
-static const char *const PATT_TITLE[6] = {"PATTERNS", "SONG", "PATTERN SOUND 1", "PATTERN SOUND 2", "HEADPHONES AND MIDI", "CLOCK SYNC"};
+static const char *const PATT_TITLE[7] = {"PATTERNS", "SONG", "PATTERN SOUND 1", "PATTERN SOUND 2", "HEADPHONES AND MIDI", "CLOCK SYNC", "OUTPUTS"};
 static const char *const SEQ_TITLE[3] = {"STEP EDIT", "STEP AND PATTERN", "TEMPO"};
 static const char CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-";
 #define NCHARS 38
@@ -2377,7 +2417,7 @@ static void on_algo(int32_t e)           /* ALGORITHM: to move inside a page (el
             bt_move(e);
             break;
         }
-        if (pg() == 5u) {
+        if (pg() >= 5u) {
             bpm_add(e);
             break;
         }
@@ -2701,7 +2741,7 @@ static void bt_do(void)                  /* K4: the action on the device in the 
         }
         break;
     case BA_QUALITY:                     /* HIGH > MID > LOW > HIGH: fewer bits and less of the air for the stream */
-        bts.quality = (uint8_t)((bts.quality & 0x80u) | ((BT_QUAL + 1u) % 3u));
+        bts.quality = (uint8_t)((bts.quality & 0xF0u) | ((BT_QUAL + 1u) % 3u));
         (void)plat_bta_quality(BT_QUAL);
         bts_dirty = 1;
         bts_t = plat_ms();
@@ -2779,19 +2819,33 @@ static void bt_poll(void)                /* the radio's news: a link that ended 
     }
 }
 
-static void midi_knob(uint32_t kn, int32_t e)   /* MIDI: K1 the sync, right ON, left OFF. K2 is Ableton Link's place: it needs WiFi, which this build has not */
+static void audio_knob(uint32_t kn, int32_t e)  /* AUDIO: K1 the USB recording, K2 the speaker and the jack, K3 the USB level; right ON (FULL), left OFF (MASTER) */
+{
+    static const uint8_t BIT[3] = {BQ_USB_OFF, BQ_LINE_OFF, BQ_USB_FULL};
+    static const char *const NM[3] = {"USB AUDIO", "SPEAKER + JACK", "USB LEVEL"};
+    if (kn < 3u) {
+        uint8_t set = (uint8_t)(kn == 2u ? e > 0 : e < 0), was = (uint8_t)((bts.quality & BIT[kn]) != 0);
+        if (set != was) {
+            bts.quality = (uint8_t)((bts.quality & (uint8_t)~BIT[kn]) | (set ? BIT[kn] : 0u));
+            out_apply();
+            bts_dirty = 1;
+            bts_t = plat_ms();
+            app_say(NM[kn], kn == 2u ? (set ? "FULL" : "MASTER") : (set ? "OFF" : "ON"));
+        }
+    }
+    ui.d_vis = ui.d_foot = 1;
+}
+static void midi_knob(uint32_t kn, int32_t e)   /* MIDI: K1 the sync, right ON, left OFF */
 {
     if (kn == 0u) {
         uint8_t on = (uint8_t)(e > 0);
         if (on != xs.on) {
             xs.on = on;                  /* (off: the render lets the clock go at its next block) */
-            bts.quality = (uint8_t)((bts.quality & 0x7Fu) | (on ? 0x80u : 0u));
+            bts.quality = (uint8_t)((bts.quality & (uint8_t)~BQ_SYNC) | (on ? BQ_SYNC : 0u));
             bts_dirty = 1;
             bts_t = plat_ms();
             app_say("MIDI SYNC", on ? "ON" : "OFF");
         }
-    } else if (kn == 1u) {
-        app_say("LINK", "NEEDS WIFI");
     }
     ui.d_vis = ui.d_foot = ui.d_head = 1;
 }
@@ -2803,6 +2857,10 @@ static void patt_knob(uint32_t kn, int32_t e)   /* PATTERNS: pick, command, bank
     }
     if (pg() == 5u) {
         midi_knob(kn, e);
+        return;
+    }
+    if (pg() == 6u) {
+        audio_knob(kn, e);
         return;
     }
     if (pg() == 0) {
@@ -2921,7 +2979,7 @@ static void preset_turn(int32_t e)      /* PRESETS: the sound of the mode */
     case M_PATT:
         if (pg() == 4u)
             bt_move(e);
-        else
+        else if (pg() < 4u)
             pick_pattern(clamp(((sq.queued >= 0 ? sq.queued : sq.cur) + e), 0, NPAT - 1));
         return;
     case M_HOME:
@@ -3326,7 +3384,7 @@ static void draw_head(void)
     char t[40], n[12];
     int32_t w, x, i;
     uint16_t mc = head_col();
-    const char *mn = ui.mode == M_PATT && pg() == 4u ? "BLUETOOTH" : ui.mode == M_PATT && pg() == 5u ? "MIDI" : MODE_NAME[ui.mode];
+    const char *mn = ui.mode != M_PATT ? MODE_NAME[ui.mode] : pg() == 4u ? "BLUETOOTH" : pg() == 5u ? "MIDI" : pg() == 6u ? "AUDIO" : MODE_NAME[ui.mode];
     cv_begin(240, 32, C_BLACK);
     w = text_w(&FONT_B, mn);
     cv_rect(3, 1, w + 10, 18, mc);
@@ -3572,11 +3630,17 @@ static void foot_cells(fcell_t *c)
             cell_set(&c[3], "RESET", "TURN >", -1, 0);
         } else if (pg() == 5u) {           /* MIDI */
             cell_set(&c[0], "MIDI SYNC", xs.on ? "ON" : "OFF", xs.on ? 127 : 0, 0);
-            cell_set(&c[1], "LINK", "N/A", 0, 0);
-            c[1].dim = 1;
-            cell_set(&c[2], "-", "", -1, 0);
+            for (k = 1; k < 4; k++) {
+                cell_set(&c[k], "-", "", -1, 0);
+                c[k].dim = 1;
+            }
+        } else if (pg() == 6u) {           /* AUDIO */
+            int uo = !(bts.quality & BQ_USB_OFF), lo = !(bts.quality & BQ_LINE_OFF), fu = (bts.quality & BQ_USB_FULL) != 0;
+            cell_set(&c[0], "USB AUDIO", uo ? "ON" : "OFF", uo ? 127 : 0, 0);
+            cell_set(&c[1], "SPK+JACK", lo ? "ON" : "OFF", lo ? 127 : 0, 0);
+            cell_set(&c[2], "USB LEVEL", fu ? "FULL" : "MASTER", fu ? 127 : 0, 0);
             cell_set(&c[3], "-", "", -1, 0);
-            c[2].dim = c[3].dim = 1;
+            c[3].dim = 1;
         } else {                           /* Bluetooth */
             bt_list();
             cell_set(&c[0], "BLUETOOTH", bts.on ? "ON" : "OFF", bts.on ? 127 : 0, 0);
@@ -4496,12 +4560,25 @@ static void vis_midi(void)               /* MIDI: the sync, the clock that comes
     } else {
         cv_text(6, 27, &FONT_T, "NO CLOCK: THE FM-1 KEEPS ITS OWN TEMPO", CL_Y);
     }
-    cv_text(6, 44, &FONT_T, "THE STEPS FOLLOW THE MIDI CLOCK, AND ITS", CL_L);
-    cv_text(6, 57, &FONT_T, "START AND STOP RUN THE SEQUENCER", CL_L);
-    cv_text(6, 70, &FONT_T, "IN FROM USB, THE MIDI JACK OR BLUETOOTH", CL_L);
-    cv_rect(6, 88, 228, 1, CL_PNL);
-    cv_text(6, 92, &FONT_T, "ABLETON LINK: NOT AVAILABLE YET", CL_O);
-    cv_text(6, 105, &FONT_T, "IT NEEDS WIFI, WHICH THIS VERSION LACKS", CL_L);
+    cv_text(6, 48, &FONT_T, "THE STEPS FOLLOW THE MIDI CLOCK, AND ITS", CL_L);
+    cv_text(6, 62, &FONT_T, "START AND STOP RUN THE SEQUENCER", CL_L);
+    cv_text(6, 80, &FONT_T, "THE CLOCK COMES IN FROM USB, THE MIDI JACK", CL_L);
+    cv_text(6, 94, &FONT_T, "OR BLUETOOTH. A STEP SOUNDS 6.5 MS AFTER", CL_L);
+    cv_text(6, 108, &FONT_T, "ITS CLOCK, ALWAYS THE SAME", CL_L);
+}
+static void vis_audio(void)              /* AUDIO: where the sound goes */
+{
+    int uo = !(bts.quality & BQ_USB_OFF), lo = !(bts.quality & BQ_LINE_OFF), fu = (bts.quality & BQ_USB_FULL) != 0;
+    int32_t x;
+    x = cv_text(6, 2, &FONT_M, "USB ", CL_W);
+    cv_text(x, 2, &FONT_M, uo ? "ON" : "OFF", uo ? CL_G : CL_R);
+    cv_text(6, 27, &FONT_T, uo ? (fu ? "TO THE COMPUTER, AT FULL LEVEL" : "TO THE COMPUTER, AT MASTER'S LEVEL") : "THE COMPUTER RECORDS SILENCE", CL_L);
+    x = cv_text(6, 44, &FONT_M, "SPEAKER + JACK ", CL_W);
+    cv_text(x, 44, &FONT_M, lo ? "ON" : "OFF", lo ? CL_G : CL_R);
+    cv_text(6, 69, &FONT_T, "THE SPEAKER AND THE MINI JACK ARE ONE", CL_L);
+    cv_text(6, 82, &FONT_T, "OUTPUT: A PLUG SWITCHES THE SPEAKER OFF", CL_L);
+    cv_rect(6, 99, 228, 1, CL_PNL);
+    cv_text(6, 104, &FONT_T, "K1 USB  K2 SPEAKER + JACK  K3 USB LEVEL", CL_Y);
 }
 static void vis_patt(void)
 {
@@ -4512,6 +4589,10 @@ static void vis_patt(void)
     }
     if (pg() == 5u) {
         vis_midi();
+        return;
+    }
+    if (pg() == 6u) {
+        vis_audio();
         return;
     }
     if (pg() == 0) {
@@ -4769,7 +4850,7 @@ static const char *const HELP[4][8] = {
      "DJF AND STUT OFF AT ONCE", "IT SAVES BY ITSELF WHEN STOPPED"},
     {"2 VCO, 16 WAVES, SYNC, FM, NOISE", "FILTER LP4 LP2 BP HP, 3 ENVELOPES", "KICK: STEP PITCH, VOL, COND, NUDGE",
      "PATCH: 8 CABLES, SOURCE AND DEPTH", "FX: COMP DLY REV STUT DJ-HPF LIMIT", "EACH PATTERN HAS ITS OWN SOUND",
-     "GLO PAGE 5 BLUETOOTH, 6 MIDI SYNC", "FM-FAM V" APP_VERSION}};
+     "GLO 5 BLUETOOTH 6 MIDI SYNC 7 AUDIO", "FM-FAM V" APP_VERSION}};
 static void vis_help(void)
 {
     int32_t i, p = (int32_t)pg() - 6;
@@ -4839,13 +4920,15 @@ void app_frame(void)
 {
     uint32_t now = plat_ms(), sig;
     static uint32_t last_k;
+    int quiet;
     input();
     snd_sync();                          /* what was changed belongs to the pattern playing */
-    if (dirty && !bk_hold && !sq.running && now - edit_t >= 1500u && autosave_tick()) {    /* the autosave: all saved */
+    quiet = (uint32_t)(xs.now - loud_at) > 13230u;     /* nothing to hear for 0.3 s: a flash write (it stops the sound) cuts no tail */
+    if (dirty && !bk_hold && !sq.running && now - edit_t >= 1500u && (quiet || now - edit_t >= 15000u) && autosave_tick()) {    /* the autosave: all saved */
         dirty = 0;
         ui.d_head = 1;
     }
-    if (bts_dirty && !bk_hold && !sq.running && now - bts_t >= 1500u)    /* what Bluetooth keeps, or its switch */
+    if (bts_dirty && !bk_hold && !sq.running && now - bts_t >= 1500u && (quiet || now - bts_t >= 15000u))    /* what Bluetooth keeps, or its switch */
         bt_store();
     bt_poll();
     {
@@ -5191,6 +5274,8 @@ int app_expect(const char *what, int *got)
         *got = sq.kstep;
     else if (!strcmp(what, "running"))
         *got = sq.running;
+    else if (!strcmp(what, "outbits"))
+        *got = bts.quality >> 4;
     else if (!strcmp(what, "sync"))
         *got = xs.on;
     else if (!strcmp(what, "extlive"))

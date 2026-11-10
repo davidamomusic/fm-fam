@@ -294,6 +294,8 @@ void plat_host_patience(uint32_t try_ms, uint32_t total_ms)
 /* USB audio full: the render at full level for the USB audio input, MASTER after it (main_fm1.c render_block) */
 static volatile uint8_t uac_full;
 void plat_usb_audio_full(int on) { uac_full = (uint8_t)(on != 0); }
+static volatile uint8_t out_off;                  /* plat_out_off: the outputs switched off (read by the render) */
+void plat_out_off(uint32_t mask) { out_off = (uint8_t)(mask & (PLAT_OUT_USB | PLAT_OUT_LINE)); }
 /* the computer's USB audio's level in the mix, 0..4096 (uac_mix.h; read by the render: one word, no lock) */
 static volatile uint32_t usb_play_q12 = 4096u;
 void plat_usb_play_gain(uint32_t q12) { usb_play_q12 = q12 > 4096u ? 4096u : q12; }

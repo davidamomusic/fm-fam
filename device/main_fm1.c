@@ -84,6 +84,21 @@ static void render_block(int32_t *o)                /* ALNK0: one half, measured
             }
             if (radio_quiet)
                 continue;
+#if FELUCCA_UAC
+            if (out_off & PLAT_OUT_USB) {           /* the USB recording switched off (plat_out_off): it takes silence,
+                                                     * and the render goes on to the FM-1's own output */
+                static int32_t keep[2u * REND_FRAMES];
+                const float g = full ? (float)gain * (1.0f / 4096.0f) : 1.0f;
+                uint32_t i;
+                for (i = 0; i < 2u * REND_FRAMES; i++) {
+                    keep[i] = o[2u * k + i];
+                    o[2u * k + i] = 0;
+                }
+                uac_mix(o + 2u * k, REND_FRAMES, gain, master_pos, full, usb_play_q12);
+                for (i = 0; i < 2u * REND_FRAMES; i++)
+                    o[2u * k + i] += full ? (int32_t)((float)keep[i] * g) : keep[i];
+            } else
+#endif
             uac_mix(o + 2u * k, REND_FRAMES, gain, master_pos, full, usb_play_q12);   /* the USB
                                                      * recording, then the computer's audio, then MASTER if full */
 #if FM1B_BT_AUDIO
@@ -99,6 +114,11 @@ static void render_block(int32_t *o)                /* ALNK0: one half, measured
                     o[2u * k + i] = 0;
             }
 #endif
+            if (out_off & PLAT_OUT_LINE) {          /* the speaker and the jack switched off (plat_out_off) */
+                uint32_t i;
+                for (i = 0; i < 2u * REND_FRAMES; i++)
+                    o[2u * k + i] = 0;
+            }
         }
     }
     us = (fm1_ticks() - t0) / FM1_TICKS_PER_US;
