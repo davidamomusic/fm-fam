@@ -17,7 +17,8 @@ if not names:
 for f in names:
     m = re.fullmatch(r"rm_([a-z]+)(\d+)\.png", f)
     out = "%s-%s.png" % (m.group(1), m.group(2)) if m else {"rm_rand_syn1.png": "random-synth.png",
-                                                            "rm_rand_kick.png": "random-kick.png"}[f]
+                                                            "rm_rand_kick.png": "random-kick.png",
+                                                            "rm_rand_fx.png": "random-fx.png"}[f]
     im = Image.open(os.path.join(src, f)).convert("RGB")
     assert im.size == (240, 240), (f, im.size)
     if len(im.getcolors(1 << 16)) <= 256:                        # the usual case: the palette holds every pixel

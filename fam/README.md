@@ -22,7 +22,8 @@ A drum synth and 16-step sequencer firmware for the M-VAVE FM-1, built on [fm1-b
 > The author is not responsible for any damage to your FM-1, your data or anything connected to it, and does not promise support.
 > By installing or using FM-FAM you accept this.
 
-Everything on the screen is in English. The manual is built into the firmware (HOME pages 7 to 10).
+Everything on the screen is in English. The controls are on the [cheat sheet](docs/FM-FAM-cheatsheet.pdf); the version of the firmware
+is on the last page of `GLO` (VERSION), with the audio's CPU load.
 
 ## Install
 
@@ -89,13 +90,35 @@ encoder moves to the next part (`choice_step()` in `fam/app.c`), and the lock of
 of SEQ and of the KICK sequence start at the same x (`col_x0()`). Tested by `fam/tests/v021a.txt` (the choices) and by `fam/tests/v021b.txt` with
 `python3 fam/tests/align_check.py DIRECTORY` (the picture, at seven lengths).
 
-Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; the package is `fm-fam-0.2.1.fwsc` and the tag `v0.2.1`); the
+What 0.2.2 to 0.2.4 added:
+
+- Buttons. `SAVE` opens the projects and the presets (six pages; the mode is called SAVE). `HOME` and `ENV` do nothing alone;
+  `OCT-` + `HOME` is the melody random. There is no save key: the autosave writes a moment after the last change, with the sequencer
+  stopped and nothing sounding (a flash write stops the sound for an instant), and the SAVE actions of the projects and presets write at once.
+- `GLO` has eight pages. After the four of the patterns: BLUETOOTH (its header in green), MIDI, AUDIO and VERSION.
+- MIDI sync (`GLO` page 6, K1; off at first). With it on, the MIDI clock that comes in from USB, the MIDI jack or Bluetooth plays the
+  steps, a 16th every six clocks, and its start, continue and stop run the sequencer; the header shows `EXT` and the clock's tempo.
+  MIDI in is stamped where it lands (`midi_stamp = true` in `fm1.toml`) and a step sounds 288 samples (6.5 ms) after its clock,
+  the same for every step; a clock over Bluetooth has no stamp and can be up to a block (5.8 ms) off. Half a second without a clock
+  and the FM-1's own tempo is back. FM-FAM does not send a clock. (`sync_rt()`, `sync_at()` in `fam/app.c`.)
+- Audio outputs (`GLO` page 7): K1 the USB recording on or off, K2 the speaker and the headphone jack on or off, K3 the USB level
+  (MASTER's, or full). The speaker and the jack are one output (one converter; a plug switches the speaker off), so they go together.
+  `plat_out_off()` is FM-FAM's addition to the platform (`include/plat.h`, `device/plat_fm1.c`, `device/main_fm1.c`,
+  `host/plat_host.c`). The settings are kept with Bluetooth's and survive a power-off.
+- Random. A random draws the kick's click from 0 to 9, the resonance from 0 to 50 and the kick's level from 90 to 100, and the general
+  random (`OCT+` + `REC`) keeps the last two at 50 and 100 or under. Each RANDOM page says whether the general random draws it (the
+  steps, the synth and the kick: yes; the patch bay, the effects, the scale and the tempo: no) and what each knob draws.
+  `OCT-` + `HOME` (`random_melody()`): a voice that holds a pitch, the cables off, one of six scales with the quantizer on (the root
+  stays), a phrase built from a four-step figure, and a kick on every beat; the kick's sound, the effects and the tempo stay.
+- Tests: `fam/tests/v022a.txt` (the sync, the AUDIO page, the buttons) and `fam/tests/v024a.txt` (the random's caps, the pages, the melody).
+
+Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; a package is `fm-fam-0.2.4.fwsc` and its tag `v0.2.4`); the
 releases before it are 0.19 and 0.20.
 
 ## Identity and package
 
 The identity is `FM-1_111` in every release; `fam/release.sh` sets it. The same text is in the package and in the
-firmware. The version of the app is `APP_VERSION` in `fam/app.h`, shown on the last four HOME pages.
+firmware. The version of the app is `APP_VERSION` in `fam/app.h`, shown on the VERSION page (`GLO`, the last page).
 
 `fam/release.sh` writes `fam/build/fm-fam.fwsc`, the package of a release: the firmware and fm1-base's own update
 loader (felucca-bsp's, built from source in `bsp/loader`). With the same toolchain, a release asset is what this

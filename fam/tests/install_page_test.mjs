@@ -62,6 +62,7 @@ const rel = (tag, extra = {}, assets) => ({
 const KEPT = {                                                   // the file attached to the release of the same name
   "fm-fam-0.19.fwsc": "1d6b8a6e984df78a8657ef4f04c7942cdbcd9ed3816bfbd8b2628bad76636c26",
   "fm-fam-0.2.1.fwsc": "e2ff7c525fce930ccfb29db7f205b8279ff789475d8c3491c4c8c711dd80c994",
+  "fm-fam-0.2.4.fwsc": "5c63314fcdfd53baf941704cc5cf43281d9de0c42fd4e66996336bed6e9f3a3f",
   "fm-fam-0.20.fwsc": "5cdbe6025e64a75e7204d6e5515d465501e5a6de256929c944298b5abf1aafa2",
 };
 const dir = path.join(root, "fam/releases");

@@ -3,13 +3,13 @@
 # Builds the FM-FAM cheat sheet: one self-contained HTML page (dark on screen, light in print) and its A4 PDF
 # (Chrome prints it). cheatsheet-1.png and cheatsheet-2.png, the previews in README.md, are its two pages at 100 dpi.
 #   python3 fam/docs/make_cheatsheet.py fam/card.png fam/docs
-# Change VERSION and the text below with every release; the controls are those of fam/app.c and its help pages.
+# Change VERSION and the text below with every release; the controls are those of fam/app.c.
 import base64, html, os, subprocess, sys
 
 card_png, out_dir = sys.argv[1], sys.argv[2]
 os.makedirs(out_dir, exist_ok=True)
 
-VERSION = "0.2.1"
+VERSION = "0.2.4"
 DESCRIPTION = ("DFAM style 16-step sequencer and a drum synth for the FM-1. It has two oscillators with 16 wave "
                "types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects "
                "chain, random pages, scales, presets and projects. Bluetooth audio is experimental.")
@@ -24,14 +24,14 @@ RELEASE = REPO + "/releases/tag/v" + VERSION
 # (section title, [(controls, description), ...]); `x` in controls marks a button, key or knob.
 SECTIONS = [
     ("Getting around", [
-        ("`SEQ` `EDIT` `ENV` `LFO` `ARP` `FX` `GLO` `SCL` `HOME`",
-         "Mode buttons: sequencer, synth, synth envelopes, patch bay, kick, effects, patterns, scale, projects and "
+        ("`SEQ` `EDIT` `LFO` `ARP` `FX` `GLO` `SCL` `SAVE`",
+         "Mode buttons: sequencer, synth, patch bay, kick, effects, patterns and settings, scale, projects and "
          "presets. The first tap goes to the mode, on the page you left; each further tap moves to the next page and "
-         "wraps after the last."),
+         "wraps after the last. `ENV` and `HOME` do nothing alone."),
         ("`SELECT` turn", "Change page inside the mode (does not wrap)."),
         ("`ALGORITHM` turn",
          "Move the cursor of the page: the step (SEQ pages 1-2, kick sequence), the target (patch bay), the bank or "
-         "slot (patterns), the item (HOME). Everywhere else it changes the tempo."),
+         "slot (patterns), the item (SAVE). Everywhere else it changes the tempo."),
         ("`PRESETS` turn",
          "Next or previous preset of the mode (synth, kick, FX, patch bay, scale). In patterns it picks the pattern."),
         ("`KNOB 1`-`KNOB 4`",
@@ -40,7 +40,6 @@ SECTIONS = [
          "Coarse: 8 steps per click on 0-127 knobs, x4 on pitch, velocity, gate, kick pitch and volume, random and "
          "patch-bay amounts. Small selectors stay as they are. In SEQ, `OCT-` + `KNOB 4` is nudge."),
         ("`PLAY`", "Start or stop. Hold 0.7 s to stop and go back to step 1."),
-        ("`SAVE`", "Save now (see Saving & loading)."),
     ]),
     ("Playing", [
         ("`STEP KEY` tap",
@@ -77,9 +76,9 @@ SECTIONS = [
          "The one you hold with a white key or, if none, the one `ALGORITHM` points to."),
     ]),
     ("Sound", [
-        ("`EDIT` / `ENV` (SYNTH), 6 pages",
+        ("`EDIT` (SYNTH), 6 pages",
          "Two oscillators with 16 types each (TRI SAW SQR PLS SIN PWM SSAW FM ORGAN VOWEL BRASS FOLD DIGI METAL NOISE "
-         "BELL); filter and noise (LP4, LP2, BP, HP); envelopes (`ENV` jumps here); mixer (levels, sync, volume); "
+         "BELL); filter and noise (LP4, LP2, BP, HP); envelopes; mixer (levels, sync, volume); "
          "modulation (envelope to VCO 1, VCO 2 and filter, accent); output (attack, drive, glide, tune). 16 presets."),
         ("Switches (SYNC, SLOPE ...)", "A switch changes at the first click: right is ON, left is OFF."),
         ("Choices (waves, filter type, delay time, slices)", "Each click moves to the next choice."),
@@ -104,12 +103,20 @@ SECTIONS = [
         ("`REC`",
          "Opens the RANDOM page of the page you are on (23 pages); press again to go back. Each knob has an ON/OFF "
          "switch and an amount (0-100%)."),
+        ("What a page says",
+         "IN or NOT IN `OCT+` + `REC`: whether the general random draws this page. Under each bar, what that knob "
+         "draws: a range (0-50), ANY for a choice, AUTO for a draw of its own."),
         ("RANDOM keys",
-         "White keys 1-4 switch a knob on or off, 5 all of them, 6 randomize now, 7 randomize steps, sound and kick."),
+         "White keys 1-4 switch a knob on or off, 5 all of them, 6 randomize this page, 7 the general random."),
         ("`OCT+` + `REC` tap",
-         "Randomize steps, synth sound and kick in one go, when you let go. Cables, FX, scale and BPM stay."),
+         "The general random: steps, synth sound and kick in one go, when you let go. Cables, FX, scale and BPM "
+         "stay. The resonance stays at 50 or under and the kick's level at 100 or under."),
         ("`OCT-` + `REC`",
          "Randomize only this page: whatever is switched on there (patch bay, FX and scale included)."),
+        ("`OCT-` + `HOME`",
+         "A melody: a voice that holds a pitch (no noise, sync or cables), one of six scales with the quantizer on "
+         "(the root stays), a phrase built from a four-step figure and a kick on every beat. The kick's sound, the "
+         "FX and the tempo stay."),
         ("`OCT+` + `REC` hold 0.7 s",
          "INIT: resets only the current pattern (HOLD TO INIT appears at 0.25 s). Tempo, other patterns, song and "
          "presets stay."),
@@ -132,9 +139,9 @@ SECTIONS = [
          "13 presets."),
     ]),
     ("Saving & loading", [
-        ("`HOME` page 1 PROJECTS",
+        ("`SAVE` page 1 PROJECTS",
          "4 slots (white keys 1-4). Pages 2-6: presets of SYNTH, KICK, FX, PATCH and SCALE (32 user slots each)."),
-        ("`HOME` knobs",
+        ("`SAVE` knobs",
          "K1 item, K2 action (LOAD, SAVE, RENAME, CLEAR), K3 name cursor, K4 turn right to run it, or change the "
          "letter."),
         ("A project", "Keeps the whole sound and banks A-C (48 patterns). Loading it replaces them."),
@@ -143,10 +150,20 @@ SECTIONS = [
          "with a file, or save and load everything (sound, patterns, presets, projects). Stop the sequencer first; the "
          "FM-1 asks `SEL` to confirm, `HOME` to cancel."),
         ("Autosave",
-         "1.5 s after your last change, with the sequencer stopped; only what changed. While playing nothing is written "
-         "(a flash write silences the audio for a moment); `SAVE` forces it."),
-        ("`HOME` pages 7-10",
-         "The manual: buttons, steps and keys, knobs and FX, sound. The header shows the version (V" + VERSION + ")."),
+         "There is no save key. 1.5 s after your last change, with the sequencer stopped and nothing sounding; only "
+         "what changed. While playing nothing is written (a flash write silences the audio for a moment). The SAVE "
+         "action of a project or preset writes at once."),
+    ]),
+    ("Sync, outputs & version", [
+        ("`GLO` page 6 MIDI",
+         "K1 MIDI SYNC, right ON, left OFF. On: the MIDI clock from USB, the MIDI jack or Bluetooth plays the steps, "
+         "and its start, continue and stop run the sequencer; the header shows EXT and the clock's tempo. A step "
+         "sounds 6.5 ms after its clock, always the same. No clock for half a second: the FM-1's own tempo. FM-FAM "
+         "sends no clock."),
+        ("`GLO` page 7 AUDIO",
+         "K1 USB audio ON/OFF (off: the computer records silence). K2 speaker + jack ON/OFF: one output, a plug "
+         "switches the speaker off. K3 USB level: MASTER's, or FULL. Kept when you switch off: no sound? look here."),
+        ("`GLO` page 8 VERSION", "The firmware's version (" + VERSION + ") and the audio's CPU load."),
     ]),
     ("Bluetooth (experimental)", [
         ("`GLO` page 5, or `SELECT`",
@@ -166,8 +183,6 @@ SECTIONS = [
          "Bluetooth is off at power-on unless you left it on."),
     ]),
     ("Good to know", [
-        ("Older versions",
-         "Patterns saved with 0.18 or later cannot be read by 0.17 or older: those versions show the bank as factory."),
         ("Random character",
          "Each draw picks one: mostly low sounds, 15% of the time bright hi-hat sounds. Pitched steps use a minor "
          "pentatonic."),
@@ -234,17 +249,17 @@ footer a {{ color:var(--acc); }}
 @media print {{
   :root {{ --bg:#fff; --panel:#fff; --line:#cfd4d1; --text:#161616; --dim:#555; --acc:#117a3c; --code:#f1f3f2; }}
   * {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
-  body {{ font-size:8pt; line-height:1.28; }}
+  body {{ font-size:7.6pt; line-height:1.22; }}
   main {{ max-width:none; padding:0; }}
   .hd {{ gap:12px; margin-bottom:5px; }} .hd img {{ width:27mm; height:27mm; border-radius:4px; }}
   h1 {{ font-size:17pt; margin:2px 0 1px; }} .ver {{ margin-bottom:4px; }} .sum {{ max-width:none; margin-bottom:4px; }}
   .btns {{ display:none; }} .legend {{ margin-bottom:5px; font-size:7.4pt; }}
   .beta {{ margin-bottom:2.2mm; padding:1mm 2.6mm; font-size:7.4pt; line-height:1.25; border-radius:3px; }}
   .cols {{ columns:2; column-gap:4.5mm; }}
-  section {{ margin:0 0 2.2mm; padding:0.6mm 2.6mm 1mm; border-radius:4px; }}
+  section {{ margin:0 0 1.8mm; padding:0.4mm 2.6mm 0.8mm; border-radius:4px; }}
   h2 {{ font-size:9.4pt; margin:1.4mm 0 0.6mm; }}
-  .e {{ padding:0.8mm 0; grid-template-columns:33% 1fr; gap:1mm 2.6mm; }}
-  .k, .d {{ font-size:7.7pt; }} code {{ font-size:7pt; padding:0 1mm; }}
+  .e {{ padding:0.55mm 0; grid-template-columns:30% 1fr; gap:1mm 2.4mm; }}
+  .k, .d {{ font-size:7.1pt; }} code {{ font-size:6.5pt; padding:0 1mm; }}
   footer {{ font-size:7.4pt; margin-top:2mm; padding-top:2mm; }}
 }}
 @media (max-width:640px) {{ .hd {{ flex-direction:column; }} .e {{ grid-template-columns:1fr; }} }}
@@ -274,7 +289,7 @@ the white keys are the steps</p>
 {sections}
 </div>
 <footer>Community-made for the M-VAVE FM-1; not affiliated with or endorsed by M-VAVE. Everything on the screen is in
-English and the manual is built into the firmware (HOME pages 7 to 10). FM-FAM is open source under the MPL-2.0:
+English. FM-FAM is open source under the MPL-2.0:
 <a href="{repo}">{repo_short}</a>. All product names belong to their owners.</footer>
 </main>
 </body>

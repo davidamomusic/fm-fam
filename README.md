@@ -96,9 +96,9 @@ The synth voice: `EDIT`, and `ENV` for its envelopes.
 </tr>
 </table>
 
-### PATTERNS
+### PATTERNS (GLO)
 
-`GLO`: 176 patterns, a 32-slot song, a sound for each pattern and Bluetooth (the devices on the last page are the simulator's stand-ins).
+`GLO`: 176 patterns, a 32-slot song and a sound for each pattern; then Bluetooth (the devices on that page are the simulator's stand-ins), the MIDI clock sync, the audio outputs and the firmware's version with the audio's CPU load.
 
 <table>
 <tr>
@@ -108,7 +108,12 @@ The synth voice: `EDIT`, and `ENV` for its envelopes.
 </tr>
 <tr>
 <td align="center"><img src="fam/docs/screens/patt-4.png" width="240" alt="PATTERNS: Pattern sound 2"><br><sub>Pattern sound 2</sub></td>
-<td align="center"><img src="fam/docs/screens/patt-5.png" width="240" alt="PATTERNS: Bluetooth"><br><sub>Bluetooth</sub></td>
+<td align="center"><img src="fam/docs/screens/patt-5.png" width="240" alt="GLO: Bluetooth"><br><sub>Bluetooth</sub></td>
+<td align="center"><img src="fam/docs/screens/patt-6.png" width="240" alt="GLO: MIDI: clock sync"><br><sub>MIDI: clock sync</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="fam/docs/screens/patt-7.png" width="240" alt="GLO: Audio: outputs"><br><sub>Audio: outputs</sub></td>
+<td align="center"><img src="fam/docs/screens/patt-8.png" width="240" alt="GLO: Version"><br><sub>Version</sub></td>
 </tr>
 </table>
 
@@ -123,39 +128,32 @@ The synth voice: `EDIT`, and `ENV` for its envelopes.
 </tr>
 </table>
 
-### HOME
+### SAVE
 
-Projects, presets and the manual built into the firmware.
+`SAVE`: the four projects and the presets of the synth, the kick, the effects, the patch bay and the scale. FM-FAM saves what you do by itself, a moment after you stop.
 
 <table>
 <tr>
-<td align="center"><img src="fam/docs/screens/home-1.png" width="240" alt="HOME: Projects"><br><sub>Projects</sub></td>
-<td align="center"><img src="fam/docs/screens/home-2.png" width="240" alt="HOME: Synth presets"><br><sub>Synth presets</sub></td>
-<td align="center"><img src="fam/docs/screens/home-3.png" width="240" alt="HOME: Kick presets"><br><sub>Kick presets</sub></td>
+<td align="center"><img src="fam/docs/screens/home-1.png" width="240" alt="SAVE: Projects"><br><sub>Projects</sub></td>
+<td align="center"><img src="fam/docs/screens/home-2.png" width="240" alt="SAVE: Synth presets"><br><sub>Synth presets</sub></td>
+<td align="center"><img src="fam/docs/screens/home-3.png" width="240" alt="SAVE: Kick presets"><br><sub>Kick presets</sub></td>
 </tr>
 <tr>
-<td align="center"><img src="fam/docs/screens/home-4.png" width="240" alt="HOME: FX presets"><br><sub>FX presets</sub></td>
-<td align="center"><img src="fam/docs/screens/home-5.png" width="240" alt="HOME: Patch presets"><br><sub>Patch presets</sub></td>
-<td align="center"><img src="fam/docs/screens/home-6.png" width="240" alt="HOME: Scale presets"><br><sub>Scale presets</sub></td>
-</tr>
-<tr>
-<td align="center"><img src="fam/docs/screens/home-7.png" width="240" alt="HOME: Help: buttons"><br><sub>Help: buttons</sub></td>
-<td align="center"><img src="fam/docs/screens/home-8.png" width="240" alt="HOME: Help: steps and keys"><br><sub>Help: steps and keys</sub></td>
-<td align="center"><img src="fam/docs/screens/home-9.png" width="240" alt="HOME: Help: knobs and FX"><br><sub>Help: knobs and FX</sub></td>
-</tr>
-<tr>
-<td align="center"><img src="fam/docs/screens/home-10.png" width="240" alt="HOME: Help: sound"><br><sub>Help: sound</sub></td>
+<td align="center"><img src="fam/docs/screens/home-4.png" width="240" alt="SAVE: FX presets"><br><sub>FX presets</sub></td>
+<td align="center"><img src="fam/docs/screens/home-5.png" width="240" alt="SAVE: Patch presets"><br><sub>Patch presets</sub></td>
+<td align="center"><img src="fam/docs/screens/home-6.png" width="240" alt="SAVE: Scale presets"><br><sub>Scale presets</sub></td>
 </tr>
 </table>
 
 ### RANDOM
 
-`REC`: one page for every page of the other modes (23 in all); two of them.
+`REC`: one page for every page of the other modes (23 in all); three of them. Each page says whether the general random (`OCT+` + `REC`) draws it, and under each bar what that knob draws: a range, `ANY` for a choice, `AUTO` for a draw of its own. `OCT-` + `REC` draws the page you are on, and `OCT-` + `HOME` makes a melody: a voice that holds a pitch, a scale with the quantizer on and a phrase.
 
 <table>
 <tr>
 <td align="center"><img src="fam/docs/screens/random-synth.png" width="240" alt="RANDOM: Synth oscillators"><br><sub>Synth oscillators</sub></td>
 <td align="center"><img src="fam/docs/screens/random-kick.png" width="240" alt="RANDOM: Kick sequence"><br><sub>Kick sequence</sub></td>
+<td align="center"><img src="fam/docs/screens/random-fx.png" width="240" alt="RANDOM: An effects page"><br><sub>An effects page</sub></td>
 </tr>
 </table>
 

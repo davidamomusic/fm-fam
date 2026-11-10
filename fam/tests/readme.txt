@@ -95,7 +95,7 @@ expect page 6
 shot rm_fx7.png
 spin SELECT -7
 wait 60
-# PATTERNS: five pages, the last one (BLUETOOTH) with two devices around on the simulator's stand-in
+# GLO: eight pages; BLUETOOTH with two devices around on the simulator's stand-in, then MIDI, AUDIO and VERSION
 tap GLO
 wait 80
 expect mode 5
@@ -124,7 +124,18 @@ shot rm_patt5.png
 spin K1 -1
 expect bton 0
 wait 3000
-spin SELECT -4
+spin SELECT 1
+wait 80
+expect page 5
+shot rm_patt6.png
+spin SELECT 1
+wait 80
+shot rm_patt7.png
+spin SELECT 1
+wait 80
+expect page 7
+shot rm_patt8.png
+spin SELECT -9
 wait 60
 # SCALE: two pages
 tap SEL
@@ -136,7 +147,7 @@ wait 80
 shot rm_scale2.png
 spin SELECT -2
 wait 60
-# HOME: projects, the five preset lists and the four help pages
+# SAVE: projects and the five preset lists
 tap SAVE
 wait 80
 expect mode 8
@@ -156,21 +167,8 @@ shot rm_home5.png
 spin SELECT 1
 wait 80
 shot rm_home6.png
-spin SELECT 1
-wait 80
-shot rm_home7.png
-spin SELECT 1
-wait 80
-shot rm_home8.png
-spin SELECT 1
-wait 80
-shot rm_home9.png
-spin SELECT 1
-wait 80
-# (0.2.4: SAVE has six pages; the help pages are gone and these last shots repeat the sixth)
 expect page 5
-shot rm_home10.png
-spin SELECT -10
+spin SELECT -6
 wait 60
 # RANDOM: the page of the synth's oscillators and the page of the kick sequence
 tap EDIT
@@ -189,3 +187,14 @@ shot rm_rand_kick.png
 tap REC
 wait 60
 expect mode 3
+# RANDOM: a page the general random leaves alone (the effects')
+tap FX
+spin SELECT -9
+wait 80
+tap REC
+wait 80
+expect mode 6
+expect page 13
+shot rm_rand_fx.png
+tap REC
+wait 60
