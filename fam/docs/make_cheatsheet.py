@@ -120,8 +120,9 @@ SECTIONS = [
          "Randomize only this page: whatever is switched on there (patch bay, FX and scale included). The reverb's "
          "width stays at 20 or under."),
         ("`OCT-` + `REC` hold 0.7 s",
-         "INIT PAGE, on SYNTH, kick sound, FX and patch-bay pages: the page's knobs go back to the first factory "
-         "preset; in the patch bay, every cable off."),
+         "INIT PAGE. SYNTH, kick sound and FX pages: the knobs go back to the first factory preset. Patch bay: every "
+         "cable off. SEQ step pages: what the page's knobs set, on every step, as in a new pattern. Kick line: empty. "
+         "SCALE pages: as at first power-on."),
         ("`OCT-` + `HOME`",
          "A melody: a voice that holds a pitch (no noise, sync or cables), one of six scales with the quantizer on "
          "(the root stays), a phrase built from a four-step figure and a kick on every beat. The kick's sound, the "

@@ -2177,13 +2177,15 @@ static void random_perc(void)
     dirty_all();
 }
 
-/* OCT- + REC held 0.7 s, on a page of sound parameters (SYNTH, KICK's sound pages, the effects, the patch bay): the page's
- * four knobs go back to the first power-on sound (the first factory preset of its kind); in the patch bay, every cable off.
- * Returns 0 on a page that has no such thing (the steps, the kick's line, the scale, the patterns). */
+/* OCT- + REC held 0.7 s: the page is initialised. A page of sound parameters (SYNTH, KICK's sound pages, the effects): its
+ * four knobs go back to the first power-on sound (the first factory preset of its kind); the patch bay: every cable off;
+ * a step page of SEQ: what its four knobs set, on every step, as in a new pattern (page 1 pitch, velocity, gate, ratchet;
+ * page 2 condition, trig, length, swing); the kick's line: empty, as in a new pattern; a SCALE page: its four knobs as at
+ * first power-on. -1 on a page that has no such thing (the tempo, the patterns and settings, SAVE). */
 static int page_init_rp(void)
 {
     int rp = ui.mode == M_RAND ? (int)pg() : rp_of(ui.mode, pg());
-    return rp == 8 || (rp >= 2 && rp <= 7) || (rp >= 9 && rp <= 11) || (rp >= 13 && rp <= 19) ? rp : -1;
+    return rp >= 0 && rp <= 21 ? rp : -1;
 }
 static void page_init(void)
 {
@@ -2198,6 +2200,51 @@ static void page_init(void)
             sd.amt[q] = 64;
         }
         sd.pon = 0;
+    } else if (rp <= 1 || rp == 12) {    /* the steps, the kick's line */
+        pat_t *pt = cur_pat();
+        uint32_t lf = plat_lock();
+        for (q = 0; q < NSTEP; q++) {
+            if (rp == 0) {
+                pt->pit[q] = 0;
+                pt->vel[q] = 100;
+                pt->gate[q] = GATE_FULL;
+                pt->rat[q] = 0;
+            } else if (rp == 1) {
+                pt->cond[q] = 0;
+                pt->trig[q] = 0;
+            } else {
+                pt->ktrig[q] = 0;
+                pt->kcond[q] = 0;
+                pt->krat[q] = 0;
+                pt->kpit[q] = 0;
+                pt->kvol[q] = KVOL_DEF;
+            }
+        }
+        if (rp == 1) {
+            pt->len = LEN_DEF;
+            pt->swing = 0;
+            if (sq.step >= pt->len)
+                sq.step = (uint8_t)(pt->len - 1u);
+            if (ui.sel >= pt->len)
+                ui.sel = (uint8_t)(pt->len - 1u);
+        } else if (rp == 12) {
+            pt->klen = KLEN_DEF;
+            if (sq.kstep >= pt->klen)
+                sq.kstep = (uint8_t)(pt->klen - 1u);
+            if (ui.ksel >= pt->klen)
+                ui.ksel = (uint8_t)(pt->klen - 1u);
+        }
+        plat_unlock(lf);
+    } else if (rp == 20) {               /* the scale: C major, the middle octave, the quantizer off */
+        sd.sc[SC_ROOT] = 0;
+        sd.sc[SC_TYPE] = 1;
+        sd.sc[SC_OCT] = 2;
+        sd.sc[SC_QUANT] = 0;
+    } else if (rp == 21) {
+        sd.sc[SC_TRANS] = 12;
+        sd.sc[SC_FINE] = 50;
+        sd.sc[SC_HUM] = 0;
+        sd.sc[SC_SPREAD] = 64;
     } else {
         const uint8_t *base;
         int cnt;

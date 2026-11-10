@@ -111,9 +111,11 @@ What 0.2.2 to 0.2.6 added:
   steps, the synth and the kick: yes; the patch bay, the effects, the scale and the tempo: no) and what each knob draws.
   `OCT-` + `HOME` (`random_melody()`): a voice that holds a pitch, the cables off, one of six scales with the quantizer on (the root
   stays), a phrase built from a four-step figure, and a kick on every beat; the kick's sound, the effects and the tempo stay.
-- 0.2.6. A random draws the reverb's width from 0 to 20 and never leaves it over 20. `OCT-` + `REC` held 0.7 s on a page of sound
-  parameters (SYNTH, the kick's sound pages, the effects, the patch bay) initialises that page (`page_init()`): its four knobs take the
-  values of the first factory preset of their kind, and in the patch bay every cable goes off; a tap is still the random of the page.
+- 0.2.6. A random draws the reverb's width from 0 to 20 and never leaves it over 20. `OCT-` + `REC` held 0.7 s initialises the page (`page_init()`); a tap is still the random of the page. On a page of sound
+  parameters (SYNTH, the kick's sound pages, the effects) the four knobs take the values of the first factory preset of their kind; in
+  the patch bay every cable goes off; on a step page of SEQ what its knobs set goes back to a new pattern's on every step (page 1 pitch,
+  velocity, gate and ratchet; page 2 condition, trig, length and swing, which leaves the line empty); the kick's line becomes empty; a
+  SCALE page takes its first power-on values. The tempo page, `GLO` and `SAVE` have no init.
   `OCT+` + `HOME` held 0.7 s is a percussion random (`random_perc()`): the steps and the kick as the general random draws them, and a
   synth that is a drum between the mids and the lows (a pitch that falls, no attack, a short decay, no hat sounds).
 - Tests: `fam/tests/v026a.txt`, `fam/tests/v022a.txt` (the sync, the AUDIO page, the buttons) and `fam/tests/v024a.txt` (the random's caps, the pages, the melody).
