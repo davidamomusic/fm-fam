@@ -2179,8 +2179,8 @@ static void random_perc(void)
 
 /* OCT- + REC held 0.7 s: the page is initialised. A page of sound parameters (SYNTH, KICK's sound pages, the effects): its
  * four knobs go back to the first power-on sound (the first factory preset of its kind); the patch bay: every cable off;
- * a step page of SEQ: what its four knobs set, on every step, as in a new pattern (page 1 pitch, velocity, gate, ratchet;
- * page 2 condition, trig, length, swing); the kick's line: empty, as in a new pattern; a SCALE page: its four knobs as at
+ * a step page of SEQ: what its four knobs set, on every step, as in a new pattern (page 1 pitch, velocity, gate, ratchet,
+ * and every trig off; page 2 condition, trig, length, swing); the kick's line: empty, as in a new pattern; a SCALE page: its four knobs as at
  * first power-on. -1 on a page that has no such thing (the tempo, the patterns and settings, SAVE). */
 static int page_init_rp(void)
 {
@@ -2205,6 +2205,7 @@ static void page_init(void)
         uint32_t lf = plat_lock();
         for (q = 0; q < NSTEP; q++) {
             if (rp == 0) {
+                pt->trig[q] = 0;         /* (the first step page takes the trigs away as well: an empty line) */
                 pt->pit[q] = 0;
                 pt->vel[q] = 100;
                 pt->gate[q] = GATE_FULL;

@@ -121,7 +121,8 @@ SECTIONS = [
          "width stays at 20 or under."),
         ("`OCT-` + `REC` hold 0.7 s",
          "INIT PAGE. SYNTH, kick sound and FX pages: the knobs go back to the first factory preset. Patch bay: every "
-         "cable off. SEQ step pages: what the page's knobs set, on every step, as in a new pattern. Kick line: empty. "
+         "cable off. SEQ step pages: what the page's knobs set, on every step, as in a new pattern, and no trigs. Kick line: "
+         "empty. "
          "SCALE pages: as at first power-on."),
         ("`OCT-` + `HOME`",
          "A melody: a voice that holds a pitch (no noise, sync or cables), one of six scales with the quantizer on "
