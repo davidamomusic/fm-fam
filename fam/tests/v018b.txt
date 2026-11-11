@@ -2,9 +2,9 @@
 wait 300
 # an empty pattern with one kick step of 4 (the loop is half a second)
 press OCT+
-press REC
-wait 900
-release REC
+wait 60
+tap GLO
+wait 60
 release OCT+
 wait 200
 tap ARP

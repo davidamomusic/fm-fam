@@ -193,7 +193,7 @@ expect mode 4
 expect chgfx 1
 expect chgsyn 0
 expect bpm 118
-# OCT+ and REC: nothing happens before 0.7 s; let go sooner it is the whole random, and it does not open RANDOM.
+# OCT+ + REC: the whole random, at once, and it does not open RANDOM.
 # (pattern 5 here, so that the steps of pattern 0 stay as they are for the checks below)
 tap SEQ
 tap EDIT
@@ -209,15 +209,12 @@ tap EDIT
 expect syn0 67
 expect snap 0
 press OCT+
+wait 60
 press REC
-wait 300
-expect initt 1
-expect syn0 67
-expect chgsyn 0
+wait 60
 release REC
 release OCT+
 wait 100
-expect initt 0
 expect mode 1
 expect chgsyn 1
 expect chgkick 1
@@ -232,21 +229,7 @@ wait 100
 expect pat 0
 tap EDIT
 expect mode 1
-# OCT+ first, REC second: the same, and OCT- joining cancels the init (a random page runs instead)
-press OCT+
-wait 100
-press REC
-wait 300
-press OCT-
-wait 900
-expect initt 0
-expect mode 1
-release OCT-
-release REC
-release OCT+
-wait 100
-expect mode 1
-# held for 0.7 s: only the pattern we are in starts over (its steps and its sound); tempo and the rest stay
+# OCT+ + GLO (0.2.8): only the pattern we are in starts over (its steps and its sound); tempo and the rest stay
 tap GLO
 tapkey w3
 wait 100
@@ -266,11 +249,9 @@ spin ALGO 3
 expect sel 7
 expect snap 0
 press OCT+
-press REC
-wait 300
-expect initt 1
-wait 600
-release REC
+wait 60
+tap GLO
+wait 60
 release OCT+
 wait 200
 expect mode 0
@@ -284,7 +265,7 @@ expect syn0 64
 expect chgsyn 1
 expect fxen 46
 expect dirty 1
-# nobody opens RANDOM at the release of that REC
+# and the mode is the one it was
 wait 100
 expect mode 0
 # the other patterns are as they were: pattern 0 is still the demo
@@ -300,9 +281,9 @@ wait 300
 tapkey w0
 tap SEQ
 press OCT+
-press REC
-wait 900
-release REC
+wait 60
+tap GLO
+wait 60
 release OCT+
 wait 200
 expect running 1

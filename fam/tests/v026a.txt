@@ -1,5 +1,5 @@
-# FM-FAM v0.2.6: the reverb's width in a random (20 or under), the page init (OCT- + REC held) and the
-# percussion random (OCT+ + HOME held)
+# FM-FAM v0.2.6: the reverb's width in a random (20 or under), the page init (OCT- + GLO since 0.2.8) and the
+# percussion random (OCT+ + HOME)
 #   fam/build/host/fm-fam_host fam/tests/v026a.txt DIRECTORY
 wait 3000
 # the reverb page (FX page 3): a random of the page, four times: the width never over 20
@@ -42,7 +42,7 @@ release REC
 release OCT-
 wait 100
 expect fx15 <21
-# the synth's filter page: turn the cutoff and the resonance, then OCT- + REC held: the page is as at first power-on
+# the synth's filter page: turn the cutoff and the resonance, then OCT- + GLO: the page is as at first power-on
 tap EDIT
 spin SELECT -9
 wait 60
@@ -56,18 +56,15 @@ wait 80
 expect syn12 >40
 press OCT-
 wait 60
-press REC
-wait 400
-shot hold.png
-wait 500
-release REC
+tap GLO
+wait 60
 release OCT-
 wait 100
 expect mode 1
 expect syn12 40
 expect syn13 55
 shot init.png
-# the step pages: held, what the page's knobs set goes back to a new pattern's, on every step
+# the step pages: what the page's knobs set goes back to a new pattern's, on every step
 tap SEQ
 spin SELECT -9
 wait 80
@@ -75,9 +72,8 @@ expect mode 0
 expect page 0
 press OCT-
 wait 60
-press REC
-wait 900
-release REC
+tap GLO
+wait 60
 release OCT-
 wait 100
 expect pit0 0
@@ -92,24 +88,22 @@ wait 80
 expect page 1
 press OCT-
 wait 60
-press REC
-wait 900
-release REC
+tap GLO
+wait 60
 release OCT-
 wait 100
 expect trig0 0
 expect trig4 0
 expect swing 0
 expect len 8
-# the tempo page has no init: held, it is the random it always was
+# the tempo page has no init: nothing changes
 spin SELECT 1
 wait 80
 expect page 2
 press OCT-
 wait 60
-press REC
-wait 900
-release REC
+tap GLO
+wait 60
 release OCT-
 wait 100
 expect mode 0
@@ -121,9 +115,8 @@ expect mode 3
 expect page 0
 press OCT-
 wait 60
-press REC
-wait 900
-release REC
+tap GLO
+wait 60
 release OCT-
 wait 100
 expect ktrig0 0
@@ -140,9 +133,8 @@ wait 80
 expect sc0 3
 press OCT-
 wait 60
-press REC
-wait 900
-release REC
+tap GLO
+wait 60
 release OCT-
 wait 100
 expect sc0 0
@@ -154,20 +146,18 @@ spin K1 3
 wait 80
 press OCT-
 wait 60
-press REC
-wait 900
-release REC
+tap GLO
+wait 60
 release OCT-
 wait 100
 expect sc4 12
 shot scale.png
 tap SEQ
-# OCT+ + HOME held: percussion. No attack, a short decay, a pitch that falls, a low or middle pitch, the kick's level 100 or under
+# OCT+ + HOME: percussion. No attack, a short decay, a pitch that falls, a low or middle pitch, the kick's level 100 or under
 press OCT+
 wait 60
-press HOME
-wait 900
-release HOME
+tap HOME
+wait 60
 release OCT+
 wait 100
 expect mode 0
@@ -179,12 +169,14 @@ expect syn13 <41
 expect kick6 <101
 wait 2500
 shot perc.png
-# a tap of OCT+ + HOME is the general random, as before
+# OCT+ + REC is the general random (as 0.2.3 drew it: the kick's level 100..110)
 press OCT+
 wait 60
-tap HOME
+press REC
 wait 60
+release REC
 release OCT+
 wait 100
-expect syn13 <51
-expect kick6 <101
+expect mode 0
+expect kick6 >99
+expect kick6 <111

@@ -90,6 +90,23 @@ encoder moves to the next part (`choice_step()` in `fam/app.c`), and the lock of
 of SEQ and of the KICK sequence start at the same x (`col_x0()`). Tested by `fam/tests/v021a.txt` (the choices) and by `fam/tests/v021b.txt` with
 `python3 fam/tests/align_check.py DIRECTORY` (the picture, at seven lengths).
 
+What 0.2.8 changed (the key combinations below are the ones that count; older notes further down name older ones):
+
+| Keys | What they do |
+|---|---|
+| `OCT-` + `REC` | a random of the page you are on (`random_run(0)`) |
+| `OCT+` + `REC` | a random of everything: the steps, the synth, the kick, as 0.2.3 drew it (`random_run(2)`) |
+| `OCT-` + `GLO` | the page is initialised (`page_init()`) |
+| `OCT+` + `GLO` | the pattern is initialised, its steps and its sound (`pattern_init()`) |
+| `OCT-` + `HOME` | a random of everything, for melodies (`random_melody()`) |
+| `OCT+` + `HOME` | a random of everything, for low and mid percussion (`random_perc()`) |
+
+Each acts at once, when the second button goes down: no hold does anything any more. The general random with the resonance at 50 and
+the kick's level at 100 or under (`random_run(1)`) is on no key now. With `OCT-` held in SEQ and in the kick's two sequence pages, K3
+is NUDGE ALL (the synth's sequence and the kick's move together, each inside its own length) and K4 the nudge of that page's own
+sequence; the second page of the kick's sequence has no nudge knob without `OCT-`, and in those pages `OCT-` no longer makes the knobs
+coarse. Test: `fam/tests/v028a.txt`.
+
 What 0.2.7 added (it moves some of what follows: read this first):
 
 - `ENV` opens the settings, five pages in this order: AUDIO, MIDI (clock and sync), MIDI (channels), BLUETOOTH, VERSION. `GLO` has
@@ -138,7 +155,7 @@ What 0.2.2 to 0.2.6 added:
   synth that is a drum between the mids and the lows (a pitch that falls, no attack, a short decay, no hat sounds).
 - Tests: `fam/tests/v026a.txt`, `fam/tests/v022a.txt` (the sync, the AUDIO page, the buttons) and `fam/tests/v024a.txt` (the random's caps, the pages, the melody).
 
-Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; a package is `fm-fam-0.2.7.fwsc` and its tag `v0.2.7`); the
+Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; a package is `fm-fam-0.2.8.fwsc` and its tag `v0.2.8`); the
 releases before it are 0.19 and 0.20.
 
 ## Identity and package

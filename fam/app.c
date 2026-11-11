@@ -1823,12 +1823,11 @@ static struct {
     uint8_t stut_mom;                    /* FX: the stutter was switched on by a key still down */
     uint32_t stut_t, play_t, init_t;     /* init_t: when OCT+ and REC went down together (0 none) */
     uint8_t init_hint;                   /* HOLD TO INIT has been shown for this press */
-    uint32_t home_t, pinit_t;            /* when OCT+ + HOME, and OCT- + REC on a sound page, went down (0: not held) */
-    uint8_t pinit_hint;
+
     uint8_t rec_chord;                   /* REC was used with other keys: it is not a tap that opens RANDOM */
     uint8_t fast;                        /* OCT- held (without REC): the knobs K1-K4 move faster */
     uint8_t fast_was;                    /* fast on the last frame (the footer changes when OCT- goes down or up) */
-    int8_t nudge;                        /* SEQ with OCT- held: the steps the sequence was moved since OCT- went down */
+    int8_t nudge, nudge_all;             /* OCT- held in SEQ or the kick's sequence: the steps K4 and K3 moved since OCT- went down */
     uint8_t rmode;                       /* where RANDOM was opened from */
     uint8_t hidx[6], hact, hcur, hren;   /* HOME: the item of each list, the action, the name's cursor, a name changed */
     uint8_t bt_sel, bt_act;              /* BLUETOOTH (PATTERNS page 5): the device in the list, the action */
@@ -2712,7 +2711,7 @@ static void go_mode(uint32_t m)
 {
     lib_commit();
     ui.mode = (uint8_t)m;
-    ui.nudge = 0;
+    ui.nudge = ui.nudge_all = 0;
     if (m == M_HOME)
         home_enter();
     dirty_all();
@@ -2764,7 +2763,7 @@ static void page_to(uint32_t m, uint32_t p)
     lib_commit();
     ui.mode = (uint8_t)m;
     ui.page[m] = (uint8_t)p;
-    ui.nudge = 0;
+    ui.nudge = ui.nudge_all = 0;
     if (m == M_HOME)
         home_enter();
     dirty_all();
@@ -2789,17 +2788,24 @@ static void on_button(uint32_t b)
     case B_FX: mode_key(M_FX, 0xFFu); break;
     case B_ARP: mode_key(M_KICK, 0xFFu); break;
     case B_SEL: mode_key(M_SCALE, 0xFFu); break;
-    case B_HOME:                                 /* alone it does nothing for now (SAVE opens its pages); with OCT- held: a melody; with OCT+: the general random */
+    case B_HOME:                                 /* alone it does nothing (SAVE opens its pages). OCT- held: a melody; OCT+: percussion */
         if ((plat_buttons() >> B_OCTDN) & 1u)
             random_melody();
-        else if ((plat_buttons() >> B_OCTUP) & 1u) { /* with OCT+ held: the general random at once; kept down 0.7 s, percussion */
-            random_run(1);
-            ui.home_t = plat_ms();
-            if (!ui.home_t)
-                ui.home_t = 1;
+        else if ((plat_buttons() >> B_OCTUP) & 1u)
+            random_perc();
+        break;
+    case B_GLO:                                  /* OCT- held: this page is initialised; OCT+: the pattern, its steps and its sound */
+        if ((plat_buttons() >> B_OCTDN) & 1u) {
+            if (page_init_rp() >= 0)
+                page_init();
+            else
+                app_say("NO INIT", "ON THIS PAGE");
+        } else if ((plat_buttons() >> B_OCTUP) & 1u) {
+            pattern_init();
+        } else {
+            mode_key(M_PATT, 0xFFu);
         }
         break;
-    case B_GLO: mode_key(M_PATT, 0xFFu); break;
     case B_PLAY:
         ui.play_t = plat_ms();
         break;
@@ -2815,7 +2821,7 @@ static void on_select(int32_t e)         /* SELECT: the page, inside the mode */
     if (p != (int32_t)pg()) {
         lib_commit();
         ui.page[ui.mode] = (uint8_t)p;
-        ui.nudge = 0;
+        ui.nudge = ui.nudge_all = 0;
         if (ui.mode == M_HOME)
             home_enter();
         dirty_all();
@@ -2902,7 +2908,6 @@ static void seq_nudge(int32_t e)         /* SEQ, OCT- held, K4: the whole sequen
         rot_steps(&p->lk_v[0][1], 2, len, sh);
         plat_unlock(lf);
     }
-    ui.nudge = (int8_t)clamp((int32_t)ui.nudge + e, -99, 99);
     touch();
     ui.d_vis = ui.d_foot = ui.d_strip = 1;
 }
@@ -2969,9 +2974,26 @@ static void kick_nudge(int32_t e)        /* KICK SEQUENCE 2, K4: the kick's whol
         rot_steps(p->kvol, 1, len, sh);
         plat_unlock(lf);
     }
-    ui.nudge = (int8_t)clamp((int32_t)ui.nudge + e, -99, 99);
+    touch();
+    ui.d_vis = ui.d_foot = ui.d_strip = 1;
 }
-/* KICK SEQUENCE 1: trig, pitch, volume, length. KICK SEQUENCE 2: condition, ratchet, (empty), nudge */
+/* OCT- held in SEQ or in the kick's sequence pages: K3 moves both sequences together, K4 the one of the page */
+static void nudge_knob(uint32_t k, int32_t e)
+{
+    if (k == 2u) {
+        seq_nudge(e);
+        kick_nudge(e);
+        ui.nudge_all = (int8_t)clamp((int32_t)ui.nudge_all + e, -99, 99);
+    } else if (k == 3u) {
+        if (ui.mode == M_SEQ)
+            seq_nudge(e);
+        else
+            kick_nudge(e);
+        ui.nudge = (int8_t)clamp((int32_t)ui.nudge + e, -99, 99);
+    }
+    ui.d_foot = 1;
+}
+/* KICK SEQUENCE 1: trig, pitch, volume, length. KICK SEQUENCE 2: condition, ratchet */
 static void kseq_knob(uint32_t kn, int32_t e)
 {
     pat_t *p = cur_pat();
@@ -2997,9 +3019,8 @@ static void kseq_knob(uint32_t kn, int32_t e)
         p->kcond[s] = (uint8_t)clamp((int32_t)p->kcond[s] + e, 0, NCOND - 1);
     } else if (kn == 1) {
         p->krat[s] = (uint8_t)clamp((int32_t)p->krat[s] + e, 0, 3);
-    } else if (kn == 3u) {
-        kick_nudge(e0);
     }
+    (void)e0;
     ui.turned = 1;
     touch();
     ui.d_vis = ui.d_foot = ui.d_strip = 1;
@@ -3435,7 +3456,7 @@ static void rand_key(uint32_t k)        /* RANDOM: keys 1-4 switch the knobs, 5 
     else if (k == 5u)
         random_run(0);
     else if (k == 6u)
-        random_run(1);
+        random_run(2);
     touch();
     ui.d_vis = ui.d_foot = 1;
 }
@@ -3496,12 +3517,10 @@ static void input(void)
     }
     if (!((btn >> B_PLAY) & 1u))
         ui.play_t = 0;
-    /* REC: a tap (alone) opens the random pages. With OCT- held: a random of this page. With OCT+ held: let go before 0.7 s,
-     * a random of the steps, the synth and the kick; held for 0.7 s, the pattern we are in is initialised. OCT- and OCT+ do
-     * nothing else. */
+    /* REC: a tap (alone) opens the random pages. With OCT- held: a random of this page. With OCT+ held: a random of the
+     * steps, the synth and the kick. Both at once, as REC goes down: nothing waits for a hold. */
     if (rec && !prec) {
         ui.rec_chord = 0;
-        ui.init_t = 0;
         if (ui.held_step != 0xFFu && ui.mode != M_KICK && ui.mode != M_RAND && ui.mode != M_FX && ui.mode != M_PATT &&
             ui.mode != M_HOME && ui.mode != M_SET && ui.mode != M_SCALE) {           /* a step held: its locks and its settings cleared */
             pat_t *p = cur_pat();
@@ -3530,64 +3549,21 @@ static void input(void)
             touch();
             app_say("KICK STEP", "CLEARED");
             ui.d_vis = ui.d_foot = ui.d_strip = 1;
-        } else if (dn) {                 /* OCT- was down first: a random of this page (OCT+ as well changes nothing); kept
-                                          * down 0.7 s on a page of sound parameters, the page is initialised instead */
+        } else if (dn) {                 /* OCT- was down first: a random of this page (OCT+ as well changes nothing) */
             random_run(0);
             ui.rec_chord = 2;
-            if (page_init_rp() >= 0) {
-                ui.pinit_t = now ? now : 1u;
-                ui.pinit_hint = 0;
-            }
-        } else if (upb) {                /* OCT+ was down first: a tap is the whole random, 0.7 s the init */
-            ui.rec_chord = 1;
-            ui.init_t = now ? now : 1u;
-            ui.init_hint = 0;
+        } else if (upb) {                /* OCT+ was down first: the random of the steps, the synth and the kick */
+            random_run(2);
+            ui.rec_chord = 2;
         }
     } else if (rec && prec && ui.rec_chord != 2) {
-        if (dn && !pdn) {                /* OCT- came down with REC held (this cancels the init: the random is of this page) */
-            int armed = ui.init_t != 0;
-            ui.init_t = 0;
-            if (!ui.rec_chord || armed) {
-                random_run(0);
-                ui.rec_chord = 1;
-            }
-        } else if (upb && !pup && !dn && ui.rec_chord == 0) {    /* OCT+ came down with REC held: a tap or the init */
-            ui.rec_chord = 1;
-            ui.init_t = now ? now : 1u;
-            ui.init_hint = 0;
+        if (dn && !pdn) {                /* OCT- came down with REC held */
+            random_run(0);
+            ui.rec_chord = 2;
+        } else if (upb && !pup && !dn) { /* OCT+ came down with REC held */
+            random_run(2);
+            ui.rec_chord = 2;
         }
-    }
-    if (ui.init_t && dn)
-        ui.init_t = 0;                   /* OCT- joined: no init */
-    else if (ui.init_t && (!rec || !upb)) {     /* OCT+ or REC let go before 0.7 s: a tap, the random of the steps, the synth, the kick */
-        ui.init_t = 0;
-        random_run(2);
-        ui.rec_chord = 2;
-    }
-    if (ui.init_t && !ui.init_hint && now - ui.init_t >= 250u) {   /* (a tap does not flash it) */
-        ui.init_hint = 1;
-        app_say("HOLD TO INIT", "THIS PATTERN");
-    }
-    if (ui.init_t && now - ui.init_t >= 700u) {
-        ui.init_t = 0;
-        ui.rec_chord = 2;
-        pattern_init();
-    }
-    if (ui.pinit_t && (!rec || !dn))     /* let go: it was the random */
-        ui.pinit_t = 0;
-    if (ui.pinit_t && !ui.pinit_hint && now - ui.pinit_t >= 250u) {
-        ui.pinit_hint = 1;
-        app_say("HOLD TO INIT", "THIS PAGE");
-    }
-    if (ui.pinit_t && now - ui.pinit_t >= 700u) {
-        ui.pinit_t = 0;
-        page_init();
-    }
-    if (ui.home_t && (!((btn >> B_HOME) & 1u) || !upb))      /* OCT+ + HOME let go: it was the general random */
-        ui.home_t = 0;
-    if (ui.home_t && now - ui.home_t >= 700u) {
-        ui.home_t = 0;
-        random_perc();
     }
     if (!rec && prec && !ui.rec_chord)
         rand_toggle();
@@ -3663,17 +3639,16 @@ static void input(void)
     ui.fast = (uint8_t)(dn && !rec);
     if (ui.fast != ui.fast_was) {        /* OCT- down or up: SEQ's footer is the nudge while it is down */
         ui.fast_was = ui.fast;
-        if (ui.mode == M_SEQ) {
-            ui.nudge = 0;
+        if (ui.mode == M_SEQ || (ui.mode == M_KICK && kpg() >= 3u)) {
+            ui.nudge = ui.nudge_all = 0;
             ui.d_foot = 1;
         }
     }
     for (k = 0; k < 4u; k++) {
         if ((e = plat_enc((int)(EN_K1 + k))) == 0)
             continue;
-        if (ui.mode == M_SEQ && ui.fast) {   /* OCT- held in SEQ: K1-K3 are empty, K4 moves the sequence */
-            if (k == 3u)
-                seq_nudge(e);
+        if (ui.fast && (ui.mode == M_SEQ || (ui.mode == M_KICK && kpg() >= 3u))) {   /* OCT- held: the nudges */
+            nudge_knob(k, e);
             continue;
         }
         if (ui.mode == M_SEQ)
@@ -4031,9 +4006,11 @@ static void foot_cells(fcell_t *c)
         }
         return;
     }
-    if (ui.mode == M_SEQ && ui.fast) {   /* OCT- held: three empty cells and the nudge */
+    if (ui.fast && (ui.mode == M_SEQ || (ui.mode == M_KICK && kpg() >= 3u))) {   /* OCT- held: two empty cells and the nudges */
+        signed_text(ui.nudge_all, t);
+        cell_set(&c[2], "NUDGE ALL", t, clamp(64 + ui.nudge_all * 8, 0, 127), 0);
         signed_text(ui.nudge, t);
-        cell_set(&c[3], "NUDGE", t, clamp(64 + ui.nudge * 8, 0, 127), 0);
+        cell_set(&c[3], ui.mode == M_SEQ ? "NUDGE" : "NUDGE KICK", t, clamp(64 + ui.nudge * 8, 0, 127), 0);
         return;
     }
     if (ui.mode == M_SEQ) {
@@ -4084,8 +4061,6 @@ static void foot_cells(fcell_t *c)
             t[0] = 'X';
             int_text(p->krat[s] + 1, t + 1);
             cell_set(&c[1], "RATCHET", t, p->krat[s] * 127 / 3, 0);
-            signed_text(ui.nudge, t);
-            cell_set(&c[3], "NUDGE", t, clamp(64 + ui.nudge * 8, 0, 127), 0);
         }
     } else if (ui.mode == M_PATCH) {
         uint32_t d = ui.pdst;
@@ -5285,7 +5260,7 @@ static void vis_rand(void)
 {
     int rp = (int)pg(), q, all = rnd_in_all(rp);
     char t[40];
-    const char *tag = all ? "IN OCT+ + HOME/REC" : "NOT IN OCT+ + HOME/REC";
+    const char *tag = all ? "IN OCT+ + REC" : "NOT IN OCT+ + REC";
     scopy(t, rp_mode(rp), 40);
     text_cat(t, "  ");
     text_cat(t, rp_title(rp));
@@ -5306,8 +5281,8 @@ static void vis_rand(void)
         rnd_range(rp, q, t);             /* the values it draws */
         centre_text(x, 54, 81, &FONT_T, t, on ? CL_W : CL_L);
     }
-    cv_text(4, 96, &FONT_T, "KEYS 1-4 ON/OFF  5 ALL  6 THIS PAGE  7 GENERAL", CL_L);
-    cv_text(4, 110, &FONT_T, all ? "OCT- + REC: PAGE  OCT+ + HOME OR REC: GENERAL" : "OCT- + REC: THIS PAGE (ONLY WAY TO DRAW IT)", CL_Y);
+    cv_text(4, 96, &FONT_T, "KEYS 1-4 ON/OFF  5 ALL ON  6 THIS PAGE  7 ALL", CL_L);
+    cv_text(4, 110, &FONT_T, all ? "OCT- + REC: THIS PAGE  OCT+ + REC: ALL" : "OCT- + REC: THIS PAGE (ONLY WAY TO DRAW IT)", CL_Y);
 }
 
 /* SCALE: the twelve notes (the root, the notes of the scale), and a melody through the scale, the spread and the transposition */
@@ -5940,6 +5915,8 @@ int app_expect(const char *what, int *got)
         *got = p->snd[atoi(what + 4) % SNDSZ];
     else if (!strcmp(what, "initt"))
         *got = ui.init_t != 0;
+    else if (!strcmp(what, "nudge_all"))
+        *got = ui.nudge_all;
     else if (!strcmp(what, "nudge"))
         *got = ui.nudge;
     else if (!strcmp(what, "hact"))

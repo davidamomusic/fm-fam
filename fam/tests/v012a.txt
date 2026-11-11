@@ -14,7 +14,7 @@ expect ktrig0 1
 expect ktrig4 1
 wait 80
 shot v12_seq_normal.png
-# OCT- down: K1-K3 empty and K4 is the nudge, 0 at first
+# OCT- down: K1 and K2 empty, K3 NUDGE ALL and K4 the nudge, 0 at first
 press OCT-
 wait 120
 expect nudge 0
@@ -67,10 +67,9 @@ expect trig6 1
 expect trig1 0
 expect pit2 12
 expect pit6 7
-# K1-K3 do nothing to the sound while the nudge is up
+# K1 and K2 do nothing to the sound while the nudge is up (K3 is NUDGE ALL since 0.2.8: fam/tests/v028a.txt)
 spin K1 5
 spin K2 -4
-spin K3 3
 expect syn0 64
 expect trig0 2
 expect len 8

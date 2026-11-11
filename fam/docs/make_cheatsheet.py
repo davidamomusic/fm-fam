@@ -9,7 +9,7 @@ import base64, html, os, subprocess, sys
 card_png, out_dir = sys.argv[1], sys.argv[2]
 os.makedirs(out_dir, exist_ok=True)
 
-VERSION = "0.2.7"
+VERSION = "0.2.8"
 DESCRIPTION = ("DFAM style 16-step sequencer and a drum synth for the FM-1. It has two oscillators with 16 wave "
                "types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects "
                "chain, random pages, scales, presets and projects. Bluetooth audio is experimental.")
@@ -38,7 +38,7 @@ SECTIONS = [
          "The four parameters named at the bottom of the screen: green, cyan, magenta and orange."),
         ("`OCT-` + `KNOB`",
          "Coarse: 8 steps per click on 0-127 knobs, x4 on pitch, velocity, gate, kick pitch and volume, random and "
-         "patch-bay amounts. Small selectors stay as they are. In SEQ, `OCT-` + `KNOB 4` is nudge."),
+         "patch-bay amounts. Small selectors stay as they are. In SEQ and the kick's sequence pages it is the nudges."),
         ("`PLAY`", "Start or stop. Hold 0.7 s to stop and go back to step 1."),
     ]),
     ("Playing", [
@@ -63,13 +63,16 @@ SECTIONS = [
          "NUDGE: shifts the whole sequence one step per click, wrapping inside the pattern length. Trig, pitch, "
          "velocity, condition, gate, ratchet and locks travel with their steps; the kick sequence stays. The counter "
          "shows the shift since you pressed `OCT-`."),
+        ("`OCT-` hold + `KNOB 3`",
+         "NUDGE ALL: the same, with the kick's sequence moving too (each inside its own length)."),
     ]),
     ("Kick", [
         ("`ARP` page 1 KICK SEQUENCE 1",
          "A sequence of its own, up to 16 steps, apart from the synth pattern. K1 trig (off, trig, accent), K2 pitch "
          "(-24 to +24 semitones), K3 volume (0-100%), K4 length (1-16). Step bars show the volume, accents in yellow."),
         ("`ARP` page 2 KICK SEQUENCE 2",
-         "K1 condition, K2 ratchet (X1-X4), K4 nudge (shifts the kick sequence, wraps inside its length)."),
+         "K1 condition, K2 ratchet (X1-X4)."),
+        ("`OCT-` hold, on both pages", "K3 NUDGE ALL (the kick's sequence and the synth's), K4 NUDGE KICK (the kick's alone)."),
         ("`ARP` pages 3-5",
          "3: pitch and decay. 4: tone (click, drive, level, wave). 5: FM and noise. 9 presets."),
         ("Which step",
@@ -104,33 +107,29 @@ SECTIONS = [
          "Opens the RANDOM page of the page you are on (23 pages); press again to go back. Each knob has an ON/OFF "
          "switch and an amount (0-100%)."),
         ("What a page says",
-         "IN or NOT IN `OCT+` + `HOME`/`REC`: whether the general random draws this page. Under each bar, what that knob "
-         "draws: a range (0-50), ANY for a choice, AUTO for a draw of its own."),
+         "IN or NOT IN `OCT+` + `REC`: whether RANDOM ALL draws this page. Under each bar, what that knob draws on "
+         "a random of its page: a range (0-50), ANY for a choice, AUTO for a draw of its own."),
         ("RANDOM keys",
-         "White keys 1-4 switch a knob on or off, 5 all of them, 6 randomize this page, 7 the general random."),
-        ("`OCT+` + `HOME`",
-         "The general random: steps, synth sound and kick in one go. Cables, FX, scale and BPM stay. The resonance "
-         "stays at 50 or under and the kick's level at 100 or under."),
-        ("`OCT+` + `HOME` hold 0.7 s",
-         "Percussion between the mids and the lows: steps and kick as the general random, and a synth that is a "
-         "drum (a pitch that falls, no attack, a short decay)."),
-        ("`OCT+` + `REC` tap",
-         "The same general random with a wider draw, when you let go: the resonance up to 85, the kick louder."),
+         "White keys 1-4 switch a knob on or off, 5 all of them, 6 randomize this page, 7 RANDOM ALL."),
         ("`OCT-` + `REC`",
-         "Randomize only this page: whatever is switched on there (patch bay, FX and scale included). The reverb's "
+         "Random of this page: whatever is switched on there (patch bay, FX and scale included). The reverb's "
          "width stays at 20 or under."),
-        ("`OCT-` + `REC` hold 0.7 s",
-         "INIT PAGE. SYNTH, kick sound and FX pages: the knobs go back to the first factory preset. Patch bay: every "
-         "cable off. SEQ step pages: what the page's knobs set, on every step, as in a new pattern, and no trigs. Kick line: "
-         "empty. "
-         "SCALE pages: as at first power-on."),
+        ("`OCT+` + `REC`",
+         "RANDOM ALL: steps, synth sound and kick in one go. Cables, FX, scale and BPM stay."),
         ("`OCT-` + `HOME`",
-         "A melody: a voice that holds a pitch (no noise, sync or cables), one of six scales with the quantizer on "
-         "(the root stays), a phrase built from a four-step figure and a kick on every beat. The kick's sound, the "
-         "FX and the tempo stay."),
-        ("`OCT+` + `REC` hold 0.7 s",
-         "INIT: resets only the current pattern (HOLD TO INIT appears at 0.25 s). Tempo, other patterns, song and "
-         "presets stay."),
+         "RANDOM ALL for melodies: a voice that holds a pitch (no noise, sync or cables), one of six scales with "
+         "the quantizer on (the root stays), a phrase built from a four-step figure and a kick on every beat."),
+        ("`OCT+` + `HOME`",
+         "RANDOM ALL for percussion, low and mid: steps and kick as RANDOM ALL, and a synth that is a drum (a pitch "
+         "that falls, no attack, a short decay)."),
+        ("`OCT-` + `GLO`",
+         "INIT PAGE. SYNTH, kick sound and FX pages: the knobs go back to the first factory preset. Patch bay: every "
+         "cable off. SEQ step pages: as in a new pattern, on every step, and no trigs. Kick line: empty. SCALE "
+         "pages: as at first power-on."),
+        ("`OCT+` + `GLO`",
+         "INIT ALL: resets the current pattern, its steps and its sound. Tempo, other patterns, song and presets "
+         "stay."),
+        ("No holds", "Every one of these acts at once, when the second button goes down."),
     ]),
     ("Patterns & song", [
         ("`GLO` page 1",

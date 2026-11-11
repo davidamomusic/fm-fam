@@ -22,7 +22,7 @@ wait 80
 expect mode 9
 expect page 4
 shot version.png
-# the general random (OCT+ + HOME since 0.2.5), five times: the resonance never over 50, the kick's level never over 100
+# OCT+ + HOME (the percussion random since 0.2.8), five times: the resonance never over 50, the kick's level never over 100
 tap SEQ
 press OCT+
 wait 60

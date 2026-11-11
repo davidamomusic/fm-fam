@@ -26,18 +26,6 @@ spin K3 100
 expect kvol2 127
 key w2 up
 wait 60
-# OCT- held: four times as fast
-press OCT-
-wait 60
-key w2 down
-wait 60
-spin K2 1
-expect kpit2 -20
-spin K2 -1
-expect kpit2 -24
-key w2 up
-release OCT-
-wait 60
 # the values of a few steps, to be moved
 key w0 down
 wait 60
@@ -62,7 +50,7 @@ expect ktrig0 1
 expect ktrig1 0
 expect ktrig4 1
 shot v18_kick_page1b.png
-# the second page: the condition and the ratchet; K3 is empty; K4 is the nudge
+# the second page: the condition and the ratchet; K3 and K4 are empty (the nudge is OCT- held + K4 since 0.2.8)
 spin SELECT 1
 expect page 1
 expect kpg 4
@@ -79,9 +67,13 @@ expect krat4 2
 expect klen 16
 shot v18_kick_page2.png
 # the whole sequence moves one step: trig, pitch, volume, condition, ratchet go with the step; the length stays
+press OCT-
+wait 60
 spin K4 1
 wait 60
 expect nudge 1
+release OCT-
+wait 60
 expect ktrig0 0
 expect ktrig1 1
 expect ktrig4 0
@@ -99,21 +91,33 @@ expect kcond4 0
 expect klen 16
 shot v18_kick_nudged.png
 # and back; a turn of the whole length is no change; the other direction wraps too
+press OCT-
+wait 60
 spin K4 -1
 wait 60
-expect nudge 0
+expect nudge -1
+release OCT-
+wait 60
 expect ktrig0 1
 expect kpit0 -21
 expect kvol0 18
 expect kcond4 2
+press OCT-
+wait 60
 spin K4 -1
 wait 60
 expect nudge -1
+release OCT-
+wait 60
 expect ktrig15 1
 expect kpit15 -21
 expect kvol15 18
 expect kpit0 24
+press OCT-
+wait 60
 spin K4 1
+wait 60
+release OCT-
 wait 60
 expect kpit0 -21
 # a shorter sequence moves inside its length only
@@ -126,13 +130,21 @@ spin K4 -3
 expect klen 4
 expect kvol4 127
 spin SELECT 1
+press OCT-
+wait 60
 spin K4 1
+wait 60
+release OCT-
 wait 60
 expect kpit1 -21
 expect kpit0 0
 expect kvol4 127
 expect kpit3 -24
+press OCT-
+wait 60
 spin K4 -1
+wait 60
+release OCT-
 wait 60
 expect kpit0 -21
 spin SELECT -1
@@ -141,14 +153,20 @@ spin K4 3
 spin K4 3
 spin K4 3
 expect klen 16
-# changing the page puts the nudge counter back to 0
-spin SELECT 1
+# OCT- up and down again: the nudge counter starts at 0
+press OCT-
+wait 60
 spin K4 3
 expect nudge 3
 spin K4 -3
-spin SELECT -1
-spin SELECT 1
 expect nudge 0
+release OCT-
+wait 60
+press OCT-
+wait 60
+expect nudge 0
+release OCT-
+wait 60
 # the sequencer running: the nudge goes on without a break
 tap PLAY
 wait 600

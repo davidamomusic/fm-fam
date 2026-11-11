@@ -157,7 +157,7 @@ The synth voice: `EDIT`, and `ENV` for its envelopes.
 
 ### RANDOM
 
-`REC`: one page for every page of the other modes (23 in all); three of them. Each page says whether the general random draws it, and under each bar what that knob draws: a range, `ANY` for a choice, `AUTO` for a draw of its own. The general random is `OCT+` + `HOME` (the resonance stays at 50 or under, the kick's level at 100 or under) or `OCT+` + `REC` (a wider draw: the resonance up to 85, the kick louder). `OCT+` + `HOME` held makes percussion between the mids and the lows. `OCT-` + `REC` draws the page you are on (held, it puts the page back as it was at first: sound pages, step pages, the kick's line and the scale), and `OCT-` + `HOME` makes a melody: a voice that holds a pitch, a scale with the quantizer on and a phrase.
+`REC`: one page for every page of the other modes (23 in all); three of them. Each page says whether the random of everything draws it, and under each bar what that knob draws: a range, `ANY` for a choice, `AUTO` for a draw of its own. `OCT-` + `REC` is a random of the page you are on and `OCT+` + `REC` a random of everything (steps, synth, kick). `OCT-` + `HOME` makes a melody and `OCT+` + `HOME` percussion between the mids and the lows. `OCT-` + `GLO` puts the page back as it was at first, `OCT+` + `GLO` the whole pattern. Nothing waits for a hold.
 
 <table>
 <tr>
