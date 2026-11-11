@@ -4,6 +4,7 @@ usb_manufacturer = "FM-FAM"
 usb_product = "FM-FAM FM-1"
 o2 = ["dsp.c"]
 mirror = true
+emu = ["midi"]                     # the browser player (tools/build.py fam --web): a MIDI keyboard or a DAW can play it
 midi_stamp = true                # MIDI in stamped where it lands: the clock sync places each step by it
 backup = true                    # backup and restore over USB: the mirror page's Projects panel
 backup_ext = "fambak"

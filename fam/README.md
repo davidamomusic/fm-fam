@@ -90,6 +90,19 @@ encoder moves to the next part (`choice_step()` in `fam/app.c`), and the lock of
 of SEQ and of the KICK sequence start at the same x (`col_x0()`). Tested by `fam/tests/v021a.txt` (the choices) and by `fam/tests/v021b.txt` with
 `python3 fam/tests/align_check.py DIRECTORY` (the picture, at seven lengths).
 
+## The browser player
+
+`fam/docs/play/` is FM-FAM in a web page: the app itself, compiled to WebAssembly by fm1-base's host simulator (`web/emu`), with the
+FM-1's panel drawn around its screen; a MIDI keyboard or a DAW can play it (`emu = ["midi"]` in `fm1.toml`). It is what `fmhub.json`'s
+`"play"` points to, served by GitHub Pages; `"editor"` points to the screen mirror and `"cheat"` to the cheat sheet. It has the sound
+and the screen of the firmware, not the FM-1's hardware: no Bluetooth, no USB audio, and what it saves stays in the browser.
+
+To make it again after a change, with Emscripten installed: `python3 tools/build.py fam --web`, then copy `index.html`, `app.js`,
+`app_worklet.js`, `worklet.js`, `app.wasm` and `parts/*.js` from `fam/build/emu/` to `fam/docs/play/`. Without Emscripten,
+`fam/tools/emcc` stands in for it with clang, wasm-ld and a wasi-libc sysroot (`WASI_SYSROOT`; put its folder first in `PATH`): the
+committed player was built that way (clang 18, wasi-libc `wasi-sdk-22`). **The player must be rebuilt for every version**; it is tested
+by `node fam/tests/play_browser_test.mjs` (headless Chromium: the page loads, switches on and draws the screen).
+
 ## How FM-FAM 0.2.9 is driven
 
 Buttons. `SEQ` the steps, `EDIT` the synth, `LFO` the patch bay, `ARP` the kick, `FX` the effects, `GLO` the patterns, `SEL` the scale,
