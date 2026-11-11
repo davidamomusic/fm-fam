@@ -17,6 +17,23 @@ The screen mirror shows the screen and the panel of an FM-1 running FM-FAM live 
 > The author is not responsible for any damage to your FM-1, your data or anything connected to it, and does not promise support.
 > By installing or using FM-FAM you accept this.
 
+## Key pairs
+
+Each acts at once, when the second button goes down.
+
+| Keys | What they do |
+|---|---|
+| `OCT-` + `REC` | Random: the page you are on |
+| `OCT+` + `REC` | Random: everything (steps, synth, kick) |
+| `OCT-` + `GLO` | Init: the page you are on |
+| `OCT+` + `GLO` | Init: everything (the pattern you are in and its sound) |
+| `OCT-` + `HOME` | Random: everything, for melodies |
+| `OCT+` + `HOME` | Random: everything, for low and mid percussion |
+| `OCT-` held, in SEQ and in the kick's sequence | K3 nudges both sequences together, K4 the page's own |
+
+`ENV` opens the settings: the audio outputs, MIDI (clock in and out, pulse sync out for gear with a sync input, channels), Bluetooth
+and the firmware's version. The rest is on the [cheat sheet](fam/docs/FM-FAM-cheatsheet.pdf).
+
 ## Screenshots
 
 The pages of every mode, as drawn by the host simulator, which runs the same app code as the FM-1 (the screen is 240x240). 

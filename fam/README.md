@@ -90,70 +90,77 @@ encoder moves to the next part (`choice_step()` in `fam/app.c`), and the lock of
 of SEQ and of the KICK sequence start at the same x (`col_x0()`). Tested by `fam/tests/v021a.txt` (the choices) and by `fam/tests/v021b.txt` with
 `python3 fam/tests/align_check.py DIRECTORY` (the picture, at seven lengths).
 
-What 0.2.8 changed (the key combinations below are the ones that count; older notes further down name older ones):
+## How FM-FAM 0.2.8 is driven
+
+Buttons. `SEQ` the steps, `EDIT` the synth, `LFO` the patch bay, `ARP` the kick, `FX` the effects, `GLO` the patterns, `SEL` the scale,
+`REC` the RANDOM pages, `SAVE` the projects and presets, `ENV` the settings. A tap goes to the mode, a further tap to its next page.
+`HOME` does nothing alone. There is no save key: the autosave writes a moment after the last change, with the sequencer stopped and
+nothing sounding (a flash write stops the sound for an instant), and the SAVE actions of the projects and presets write at once.
+
+Key pairs. Each acts at once, when the second button goes down; no hold does anything.
 
 | Keys | What they do |
 |---|---|
 | `OCT-` + `REC` | a random of the page you are on (`random_run(0)`) |
-| `OCT+` + `REC` | a random of everything: the steps, the synth, the kick, as 0.2.3 drew it (`random_run(2)`) |
+| `OCT+` + `REC` | a random of everything: the steps, the synth, the kick (`random_run(2)`) |
 | `OCT-` + `GLO` | the page is initialised (`page_init()`) |
-| `OCT+` + `GLO` | the pattern is initialised, its steps and its sound (`pattern_init()`) |
+| `OCT+` + `GLO` | everything is initialised: the pattern you are in, its steps and its sound (`pattern_init()`) |
 | `OCT-` + `HOME` | a random of everything, for melodies (`random_melody()`) |
 | `OCT+` + `HOME` | a random of everything, for low and mid percussion (`random_perc()`) |
 
-Each acts at once, when the second button goes down: no hold does anything any more. The general random with the resonance at 50 and
-the kick's level at 100 or under (`random_run(1)`) is on no key now. With `OCT-` held in SEQ and in the kick's two sequence pages, K3
-is NUDGE ALL (the synth's sequence and the kick's move together, each inside its own length) and K4 the nudge of that page's own
-sequence; the second page of the kick's sequence has no nudge knob without `OCT-`, and in those pages `OCT-` no longer makes the knobs
-coarse. Test: `fam/tests/v028a.txt`.
+- The random of everything draws the steps, the synth and the kick, and leaves the cables, the effects, the scale and the tempo. It
+  draws the resonance up to 85 and the kick's level from 100 to 110, as 0.2.3 did; key 7 of a RANDOM page is the same random with the
+  resonance at 50 and the kick's level at 100 or under (`random_run(1)`). A random draws the kick's click from 0 to 9 and the reverb's
+  width from 0 to 20. Each RANDOM page says whether the random of everything draws it and what each knob draws (a range, `ANY` for a
+  choice, `AUTO` for a draw of its own).
+- The melody random: a voice that holds a pitch, the cables off, one of six scales with the quantizer on (the root stays), a phrase
+  built from a four-step figure, and a kick on every beat; the kick's sound, the effects and the tempo stay.
+- The percussion random: the steps and the kick as the random of everything draws them, and a synth that is a drum between the mids
+  and the lows (a pitch that falls, no attack, a short decay, no hat sounds).
+- The init of a page. A page of sound parameters (SYNTH, the kick's sound pages, the effects): its four knobs take the values of the
+  first factory preset of their kind. The patch bay: every cable off. A step page of SEQ: what its knobs set goes back to a new
+  pattern's on every step, and the line is left empty (page 1 pitch, velocity, gate, ratchet and every trig; page 2 condition, trig,
+  length and swing). The kick's line: empty. A SCALE page: its first power-on values. The tempo page, `GLO`, `SAVE` and `ENV` have none.
+- The init of everything: the pattern you are in becomes a new one (its steps, the kick's line, the lengths, the swing) and its sound
+  the first power-on one (the synth, the kick, the effects, the cables, the scale). The tempo, the other patterns, the song and the
+  presets stay.
 
-What 0.2.7 added (it moves some of what follows: read this first):
+Nudge. With `OCT-` held in the step pages of SEQ and in the kick's two sequence pages, K3 is NUDGE ALL (the synth's sequence and the
+kick's move together, each inside its own length) and K4 the nudge of that page's own sequence. In those pages `OCT-` does not make
+the knobs coarse.
 
-- `ENV` opens the settings, five pages in this order: AUDIO, MIDI (clock and sync), MIDI (channels), BLUETOOTH, VERSION. `GLO` has
-  its four pages of patterns again.
-- MIDI clock out (MIDI page 1, K2): 24 clocks a quarter note, start and stop, to USB and Bluetooth, while the sequencer runs on its
-  own tempo. The render counts the clocks in samples, so they cannot drift from the steps, and hands each with its time to the 1 kHz
-  tick (`app_tick`, `clock_send()`), which sends it; following a clock that comes in, none goes out.
-- Pulse sync out (MIDI page 1, K3), for gear that takes sync pulses on a jack: 1, 2, 4 or 24 pulses a quarter note, 5 ms each, on the
-  left channel of the FM-1's own output (the tip of the headphone jack), with the sound in mono on the right. `app_line_out()` writes
-  it, a hook FM-FAM adds to the platform after the USB recording has taken the block (`APP_LINE_OUT` in `device/main_fm1.c` and
-  `host/plat_host.c`), so the recording stays clean. With a clock coming in, the pulses follow that clock.
-- The FM-1 has no way to take sync pulses in: its MIDI jack is an input for MIDI only and there is no analog input. It follows MIDI clock.
-- Channels (MIDI page 2): K1 the channel notes come in on (all, or one), K2 the channel the synth's steps go out on as notes, K3 the
-  channel the kick's steps go out on as note 36; out is off at first. The FM-1's MIDI jack is an input, so notes and clock go out by
-  USB and Bluetooth.
-- The settings live in `btst_t.set` (the Bluetooth object grew by eight bytes; a record of an older version loads as it is, with the
-  MIDI settings at their first values). Test: `fam/tests/v027a.txt`.
+The settings (`ENV`, five pages):
 
-What 0.2.2 to 0.2.6 added:
+1. AUDIO. K1 the USB recording on or off, K2 the speaker and the headphone jack on or off, K3 the USB level (MASTER's, or full). The
+   speaker and the jack are one output (one converter; a plug switches the speaker off), so they go together. `plat_out_off()` is
+   FM-FAM's addition to the platform (`include/plat.h`, `device/plat_fm1.c`, `device/main_fm1.c`, `host/plat_host.c`).
+2. MIDI, clock and sync. K1 the clock in: the MIDI clock from USB, the MIDI jack or Bluetooth plays the steps, a 16th every six
+   clocks, and its start, continue and stop run the sequencer; the header shows `EXT` and the clock's tempo. MIDI in is stamped where
+   it lands (`midi_stamp = true` in `fm1.toml`) and a step sounds 288 samples (6.5 ms) after its clock, the same for every step; a
+   clock over Bluetooth has no stamp and can be up to a block (5.8 ms) off; half a second without a clock and the FM-1's own tempo is
+   back (`sync_rt()`, `sync_at()`). K2 the clock out: 24 clocks a quarter note, start and stop, to USB and Bluetooth, while the
+   sequencer runs on its own tempo; the render counts them in samples, so they cannot drift from the steps, and the 1 kHz tick sends
+   each at its time (`app_tick`, `clock_send()`). K3 the pulse sync out, for gear that takes sync pulses on a jack: 1, 2, 4 or 24
+   pulses a quarter note, 5 ms each, on the left of the FM-1's own output (the tip of the headphone jack), with the sound in mono on
+   the right; `app_line_out()` writes it, a hook FM-FAM adds to the platform after the USB recording has taken the block
+   (`APP_LINE_OUT` in `device/main_fm1.c` and `host/plat_host.c`), so the recording stays clean.
+3. MIDI, channels. K1 the channel notes come in on (all, or one; note 36 is the kick), K2 the channel the synth's steps go out on as
+   notes, K3 the channel the kick's steps go out on as note 36. Out is off at first.
+4. BLUETOOTH (its header in green): headphones and speakers, and Bluetooth MIDI.
+5. VERSION: the firmware's version and the audio's CPU load.
 
-- Buttons. `SAVE` opens the projects and the presets (six pages; the mode is called SAVE). `HOME` and `ENV` do nothing alone;
-  `OCT-` + `HOME` is the melody random and `OCT+` + `HOME` the general random. There is no save key: the autosave writes a moment after the last change, with the sequencer
-  stopped and nothing sounding (a flash write stops the sound for an instant), and the SAVE actions of the projects and presets write at once.
-- `GLO` has eight pages. After the four of the patterns: BLUETOOTH (its header in green), MIDI, AUDIO and VERSION.
-- MIDI sync (`GLO` page 6, K1; off at first). With it on, the MIDI clock that comes in from USB, the MIDI jack or Bluetooth plays the
-  steps, a 16th every six clocks, and its start, continue and stop run the sequencer; the header shows `EXT` and the clock's tempo.
-  MIDI in is stamped where it lands (`midi_stamp = true` in `fm1.toml`) and a step sounds 288 samples (6.5 ms) after its clock,
-  the same for every step; a clock over Bluetooth has no stamp and can be up to a block (5.8 ms) off. Half a second without a clock
-  and the FM-1's own tempo is back. FM-FAM does not send a clock. (`sync_rt()`, `sync_at()` in `fam/app.c`.)
-- Audio outputs (`GLO` page 7): K1 the USB recording on or off, K2 the speaker and the headphone jack on or off, K3 the USB level
-  (MASTER's, or full). The speaker and the jack are one output (one converter; a plug switches the speaker off), so they go together.
-  `plat_out_off()` is FM-FAM's addition to the platform (`include/plat.h`, `device/plat_fm1.c`, `device/main_fm1.c`,
-  `host/plat_host.c`). The settings are kept with Bluetooth's and survive a power-off.
-- Random. A random draws the kick's click from 0 to 9, the resonance from 0 to 50 and the kick's level from 90 to 100, and the general
-  random of `OCT+` + `HOME` (0.2.5; `random_run(1)`) keeps the last two at 50 and 100 or under. `OCT+` + `REC` (a tap) is the general
-  random as 0.2.3 drew it (`random_run(2)`): the resonance up to 85 and the kick's level from 100 to 110. Each RANDOM page says whether the general random draws it (the
-  steps, the synth and the kick: yes; the patch bay, the effects, the scale and the tempo: no) and what each knob draws.
-  `OCT-` + `HOME` (`random_melody()`): a voice that holds a pitch, the cables off, one of six scales with the quantizer on (the root
-  stays), a phrase built from a four-step figure, and a kick on every beat; the kick's sound, the effects and the tempo stay.
-- 0.2.6. A random draws the reverb's width from 0 to 20 and never leaves it over 20. `OCT-` + `REC` held 0.7 s initialises the page (`page_init()`); a tap is still the random of the page. On a page of sound
-  parameters (SYNTH, the kick's sound pages, the effects) the four knobs take the values of the first factory preset of their kind; in
-  the patch bay every cable goes off; on a step page of SEQ what its knobs set goes back to a new pattern's on every step (page 1 pitch,
-  velocity, gate and ratchet, and every trig off; page 2 condition, trig, length and swing: both leave the line empty); the kick's line becomes empty; a
-  SCALE page takes its first power-on values. The tempo page, `GLO` and `SAVE` have no init.
-  `OCT+` + `HOME` held 0.7 s is a percussion random (`random_perc()`): the steps and the kick as the general random draws them, and a
-  synth that is a drum between the mids and the lows (a pitch that falls, no attack, a short decay, no hat sounds).
-- Tests: `fam/tests/v026a.txt`, `fam/tests/v022a.txt` (the sync, the AUDIO page, the buttons) and `fam/tests/v024a.txt` (the random's caps, the pages, the melody).
+What the FM-1 cannot do: its MIDI jack is an input only, so notes and clock go out by USB and Bluetooth; and it has no analog input,
+so it cannot take sync pulses in. It follows MIDI clock. The settings of the AUDIO and MIDI pages are kept with Bluetooth's, in an
+object that is in no backup, and survive a power-off (`btst_t`; it grew by eight bytes in 0.2.7, and a record of an older version
+loads as it is).
+
+Tests of these: `fam/tests/v022a.txt` (the clock in, the AUDIO page), `v024a.txt` (the random's caps, the RANDOM pages, the melody),
+`v026a.txt` (the reverb's width, the init of a page, percussion), `v027a.txt` (ENV's pages, the clock out, the pulses, the channels)
+and `v028a.txt` (the key pairs, the nudges).
+
+Versions: 0.2.2 the clock in, 0.2.3 the AUDIO page and the stamped clock, 0.2.4 the RANDOM pages' labels, the melody random and the
+VERSION page, 0.2.5 and 0.2.6 the randoms' keys, the init of a page and the percussion random, 0.2.7 the clock out, the pulse sync,
+the notes out and the settings on `ENV`, 0.2.8 the six key pairs with no holds and NUDGE ALL.
 
 Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; a package is `fm-fam-0.2.8.fwsc` and its tag `v0.2.8`); the
 releases before it are 0.19 and 0.20.
