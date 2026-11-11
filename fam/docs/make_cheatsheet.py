@@ -9,7 +9,7 @@ import base64, html, os, subprocess, sys
 card_png, out_dir = sys.argv[1], sys.argv[2]
 os.makedirs(out_dir, exist_ok=True)
 
-VERSION = "0.2.6"
+VERSION = "0.2.7"
 DESCRIPTION = ("DFAM style 16-step sequencer and a drum synth for the FM-1. It has two oscillators with 16 wave "
                "types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects "
                "chain, random pages, scales, presets and projects. Bluetooth audio is experimental.")
@@ -24,10 +24,10 @@ RELEASE = REPO + "/releases/tag/v" + VERSION
 # (section title, [(controls, description), ...]); `x` in controls marks a button, key or knob.
 SECTIONS = [
     ("Getting around", [
-        ("`SEQ` `EDIT` `LFO` `ARP` `FX` `GLO` `SCL` `SAVE`",
-         "Mode buttons: sequencer, synth, patch bay, kick, effects, patterns and settings, scale, projects and "
-         "presets. The first tap goes to the mode, on the page you left; each further tap moves to the next page and "
-         "wraps after the last. `ENV` and `HOME` do nothing alone."),
+        ("`SEQ` `EDIT` `LFO` `ARP` `FX` `GLO` `SCL` `SAVE` `ENV`",
+         "Mode buttons: sequencer, synth, patch bay, kick, effects, patterns, scale, projects and presets, "
+         "settings. The first tap goes to the mode, on the page you left; each further tap moves to the next page and "
+         "wraps after the last. `HOME` does nothing alone."),
         ("`SELECT` turn", "Change page inside the mode (does not wrap)."),
         ("`ALGORITHM` turn",
          "Move the cursor of the page: the step (SEQ pages 1-2, kick sequence), the target (patch bay), the bank or "
@@ -165,19 +165,22 @@ SECTIONS = [
          "what changed. While playing nothing is written (a flash write silences the audio for a moment). The SAVE "
          "action of a project or preset writes at once."),
     ]),
-    ("Sync, outputs & version", [
-        ("`GLO` page 6 MIDI",
-         "K1 MIDI SYNC, right ON, left OFF. On: the MIDI clock from USB, the MIDI jack or Bluetooth plays the steps, "
-         "and its start, continue and stop run the sequencer; the header shows EXT and the clock's tempo. A step "
-         "sounds 6.5 ms after its clock, always the same. No clock for half a second: the FM-1's own tempo. FM-FAM "
-         "sends no clock."),
-        ("`GLO` page 7 AUDIO",
+    ("Settings (ENV), 5 pages", [
+        ("Page 1 AUDIO",
          "K1 USB audio ON/OFF (off: the computer records silence). K2 speaker + jack ON/OFF: one output, a plug "
          "switches the speaker off. K3 USB level: MASTER's, or FULL. Kept when you switch off: no sound? look here."),
-        ("`GLO` page 8 VERSION", "The firmware's version (" + VERSION + ") and the audio's CPU load."),
+        ("Page 2 MIDI: clock and sync",
+         "K1 CLOCK IN: the MIDI clock from USB, the MIDI jack or Bluetooth plays the steps; its start and stop run "
+         "the sequencer (header: EXT). K2 CLOCK OUT: clock, start, stop to USB and Bluetooth. K3 PULSE OUT, for "
+         "gear with a sync input: 1, 2, 4 or 24 a quarter note; on the jack, pulses left (tip), sound right (ring)."),
+        ("Page 3 MIDI: channels",
+         "K1 IN: ALL or 1-16 (note 36 is the kick). K2 OUT: OFF or 1-16, the synth's steps as notes. K3 KICK: OFF or "
+         "1-16, its steps as note 36. Out to USB and Bluetooth."),
+        ("Pages 4 and 5", "BLUETOOTH (below) and VERSION: the firmware's version (" + VERSION + ") and the CPU load. "
+         "The MIDI jack is an input only and there is no pulse input: the FM-1 follows MIDI clock, not pulses."),
     ]),
     ("Bluetooth (experimental)", [
-        ("`GLO` page 5, or `SELECT`",
+        ("`ENV` page 4",
          "The BLUETOOTH page. K1 ON/OFF (right is ON). K2, `ALGORITHM` or `PRESETS` scroll the devices (KEPT are "
          "remembered, NEW were found). K3 picks the action: SCAN, CONNECT, HANG UP, FORGET, OUTPUT, QUALITY, BT MIDI. "
          "K4 turned right runs it."),
@@ -260,7 +263,7 @@ footer a {{ color:var(--acc); }}
 @media print {{
   :root {{ --bg:#fff; --panel:#fff; --line:#cfd4d1; --text:#161616; --dim:#555; --acc:#117a3c; --code:#f1f3f2; }}
   * {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
-  body {{ font-size:7.6pt; line-height:1.22; }}
+  body {{ font-size:7.4pt; line-height:1.2; }}
   main {{ max-width:none; padding:0; }}
   .hd {{ gap:12px; margin-bottom:5px; }} .hd img {{ width:27mm; height:27mm; border-radius:4px; }}
   h1 {{ font-size:17pt; margin:2px 0 1px; }} .ver {{ margin-bottom:4px; }} .sum {{ max-width:none; margin-bottom:4px; }}
@@ -270,7 +273,7 @@ footer a {{ color:var(--acc); }}
   section {{ margin:0 0 1.8mm; padding:0.4mm 2.6mm 0.8mm; border-radius:4px; }}
   h2 {{ font-size:9.4pt; margin:1.4mm 0 0.6mm; }}
   .e {{ padding:0.55mm 0; grid-template-columns:30% 1fr; gap:1mm 2.4mm; }}
-  .k, .d {{ font-size:7.1pt; }} code {{ font-size:6.5pt; padding:0 1mm; }}
+  .k, .d {{ font-size:6.9pt; }} code {{ font-size:6.4pt; padding:0 1mm; }}
   footer {{ font-size:7.4pt; margin-top:2mm; padding-top:2mm; }}
 }}
 @media (max-width:640px) {{ .hd {{ flex-direction:column; }} .e {{ grid-template-columns:1fr; }} }}

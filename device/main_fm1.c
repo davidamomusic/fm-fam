@@ -114,6 +114,9 @@ static void render_block(int32_t *o)                /* ALNK0: one half, measured
                     o[2u * k + i] = 0;
             }
 #endif
+#ifdef APP_LINE_OUT
+            app_line_out(o + 2u * k, REND_FRAMES);  /* the app's last word on what the speaker and the jack get */
+#endif
             if (out_off & PLAT_OUT_LINE) {          /* the speaker and the jack switched off (plat_out_off) */
                 uint32_t i;
                 for (i = 0; i < 2u * REND_FRAMES; i++)

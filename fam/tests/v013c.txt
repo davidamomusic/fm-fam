@@ -1,10 +1,10 @@
 # FM-FAM v0.13: Bluetooth's switch and the device kept survive a restart; with it off the radio stays quiet
 wait 500
 expect bton 0
-tap GLO
+tap ENV
 spin SELECT -9
 wait 60
-spin SELECT 4
+spin SELECT 3
 spin K1 1
 expect bton 1
 bta add PHONES
@@ -23,12 +23,12 @@ expect btdirty 0
 reboot
 wait 800
 expect bton 1
-tap GLO
+tap ENV
 spin SELECT -9
 wait 60
-spin SELECT 4
+spin SELECT 3
 wait 200
-expect page 4
+expect page 3
 expect btkn 1
 shot v13_bt_after_reboot.png
 # switched off, it stays off after a restart, and the kept device is still kept
@@ -39,10 +39,10 @@ expect btdirty 0
 reboot
 wait 800
 expect bton 0
-tap GLO
+tap ENV
 spin SELECT -9
 wait 60
-spin SELECT 4
+spin SELECT 3
 wait 200
 expect btn 0
 spin K1 1

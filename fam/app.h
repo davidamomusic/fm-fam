@@ -5,7 +5,7 @@
 #include "plat.h"
 
 #define APP_NAME "FM-FAM"
-#define APP_VERSION "0.2.6"
+#define APP_VERSION "0.2.7"
 #define APP_SPLASH_RGB RGB(255, 140, 30)
 #define APP_BLOCK 256u                   /* frames per audio block: 5.8 ms at 44.1 kHz (the step clock is per sample) */
 
@@ -16,6 +16,10 @@ enum { OBJ_SOUND, OBJ_PANEL, OBJ_BANK0, OBJ_BANK1, OBJ_BANK2, OBJ_BANK3, OBJ_BAN
 
 void app_init(void);
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12);
+#define APP_TICK                         /* 1 kHz: the MIDI clock out leaves on time */
+void app_tick(void);
+#define APP_LINE_OUT                     /* FM-FAM's addition to the platform: the block on its way to the FM-1's own output */
+void app_line_out(int32_t *lr, uint32_t n);
 void app_panic(void);
 void app_ui_init(void);
 void app_frame(void);

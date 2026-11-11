@@ -62,9 +62,9 @@ wait 80
 shot v_output.png
 tap SEQ
 expect mode 0
-# ENV does nothing for now (0.2.2): the envelopes are SYNTH's third page
+# the envelopes are SYNTH's third page (ENV opens the settings since 0.2.7)
 tap ENV
-expect mode 0
+expect mode 9
 tap EDIT
 spin SELECT -9
 wait 60

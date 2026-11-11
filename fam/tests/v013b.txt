@@ -1,10 +1,10 @@
 # FM-FAM v0.13: the BLUETOOTH page of GLO (the sound to headphones and speakers), on the simulator's stand-in
 wait 500
 expect bton 0
-tap GLO
-expect mode 5
-spin SELECT 4
-expect page 4
+tap ENV
+expect mode 9
+spin SELECT 3
+expect page 3
 wait 100
 shot v13_bt_off.png
 # off: nothing to list, and K4 only says so

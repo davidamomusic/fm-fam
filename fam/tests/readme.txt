@@ -95,7 +95,7 @@ expect page 6
 shot rm_fx7.png
 spin SELECT -7
 wait 60
-# GLO: eight pages; BLUETOOTH with two devices around on the simulator's stand-in, then MIDI, AUDIO and VERSION
+# GLO: four pages
 tap GLO
 wait 80
 expect mode 5
@@ -109,9 +109,22 @@ shot rm_patt3.png
 spin SELECT 1
 wait 80
 shot rm_patt4.png
+expect page 3
+# ENV: AUDIO, MIDI (two pages), BLUETOOTH with two devices around on the simulator's stand-in, VERSION
+tap ENV
+wait 80
+expect mode 9
+expect page 0
+shot rm_set1.png
 spin SELECT 1
 wait 80
-expect page 4
+shot rm_set2.png
+spin SELECT 1
+wait 80
+shot rm_set3.png
+spin SELECT 1
+wait 80
+expect page 3
 spin K1 1
 expect bton 1
 wait 300
@@ -120,21 +133,15 @@ bta add SPEAKER
 spin K4 1
 wait 1300
 expect btn 2
-shot rm_patt5.png
+shot rm_set4.png
 spin K1 -1
 expect bton 0
 wait 3000
 spin SELECT 1
 wait 80
-expect page 5
-shot rm_patt6.png
-spin SELECT 1
-wait 80
-shot rm_patt7.png
-spin SELECT 1
-wait 80
-expect page 7
-shot rm_patt8.png
+expect page 4
+shot rm_set5.png
+tap GLO
 spin SELECT -9
 wait 60
 # SCALE: two pages

@@ -10,12 +10,17 @@ wait 80
 expect page 5
 tap SAVE
 expect page 0
-# GLO has eight pages; the last one is VERSION
+# VERSION is the last of ENV's pages; GLO has its four again
 tap GLO
 spin SELECT 9
 wait 80
 expect mode 5
-expect page 7
+expect page 3
+tap ENV
+spin SELECT 9
+wait 80
+expect mode 9
+expect page 4
 shot version.png
 # the general random (OCT+ + HOME since 0.2.5), five times: the resonance never over 50, the kick's level never over 100
 tap SEQ

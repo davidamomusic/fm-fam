@@ -98,7 +98,7 @@ The synth voice: `EDIT`, and `ENV` for its envelopes.
 
 ### PATTERNS (GLO)
 
-`GLO`: 176 patterns, a 32-slot song and a sound for each pattern; then Bluetooth (the devices on that page are the simulator's stand-ins), the MIDI clock sync, the audio outputs and the firmware's version with the audio's CPU load.
+`GLO`: 176 patterns, a 32-slot song and a sound for each pattern.
 
 <table>
 <tr>
@@ -108,12 +108,22 @@ The synth voice: `EDIT`, and `ENV` for its envelopes.
 </tr>
 <tr>
 <td align="center"><img src="fam/docs/screens/patt-4.png" width="240" alt="PATTERNS: Pattern sound 2"><br><sub>Pattern sound 2</sub></td>
-<td align="center"><img src="fam/docs/screens/patt-5.png" width="240" alt="GLO: Bluetooth"><br><sub>Bluetooth</sub></td>
-<td align="center"><img src="fam/docs/screens/patt-6.png" width="240" alt="GLO: MIDI: clock sync"><br><sub>MIDI: clock sync</sub></td>
+</tr>
+</table>
+
+### SETTINGS (ENV)
+
+`ENV`: the audio outputs; MIDI, in two pages (the clock in and out and the pulse sync for gear with a sync input, then the channels in and out); Bluetooth (the devices on that page are the simulator's stand-ins); and the firmware's version with the audio's CPU load.
+
+<table>
+<tr>
+<td align="center"><img src="fam/docs/screens/set-1.png" width="240" alt="SETTINGS: Audio: outputs"><br><sub>Audio: outputs</sub></td>
+<td align="center"><img src="fam/docs/screens/set-2.png" width="240" alt="SETTINGS: MIDI: clock and sync"><br><sub>MIDI: clock and sync</sub></td>
+<td align="center"><img src="fam/docs/screens/set-3.png" width="240" alt="SETTINGS: MIDI: channels"><br><sub>MIDI: channels</sub></td>
 </tr>
 <tr>
-<td align="center"><img src="fam/docs/screens/patt-7.png" width="240" alt="GLO: Audio: outputs"><br><sub>Audio: outputs</sub></td>
-<td align="center"><img src="fam/docs/screens/patt-8.png" width="240" alt="GLO: Version"><br><sub>Version</sub></td>
+<td align="center"><img src="fam/docs/screens/set-4.png" width="240" alt="SETTINGS: Bluetooth"><br><sub>Bluetooth</sub></td>
+<td align="center"><img src="fam/docs/screens/set-5.png" width="240" alt="SETTINGS: Version"><br><sub>Version</sub></td>
 </tr>
 </table>
 

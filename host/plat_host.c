@@ -2045,6 +2045,9 @@ static void sim_render(int32_t *blk)            /* one APP_BLOCK-frame block, as
     memset(usb_ch, 0, sizeof usb_ch);
 #endif
     app_render(blk, APP_BLOCK, uac_full ? 4096u : APP_GAIN(master));
+#ifdef APP_LINE_OUT
+    app_line_out(blk, APP_BLOCK);           /* (the device calls it after the USB recording took the block) */
+#endif
 #if FM1B_UAC_CH > 2
     usb_ch_master(blk);
     if (uwav) {

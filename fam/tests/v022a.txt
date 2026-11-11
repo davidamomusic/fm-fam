@@ -2,10 +2,8 @@
 # and the kick's click in a random
 #   fam/build/host/fm-fam_host fam/tests/v022a.txt DIRECTORY
 wait 3000
-# ENV and HOME do nothing; SAVE opens HOME, and is its page key
+# HOME does nothing alone; SAVE opens its pages, and is their page key
 tap SEQ
-tap ENV
-expect mode 0
 tap HOME
 expect mode 0
 tap SAVE
@@ -13,18 +11,18 @@ expect mode 8
 expect page 0
 tap SAVE
 expect page 1
-# GLO has six pages: the fifth is BLUETOOTH, the sixth MIDI
-tap GLO
+# ENV's pages (0.2.7): AUDIO, MIDI, MIDI, BLUETOOTH, VERSION
+tap ENV
 spin SELECT -9
 wait 60
-spin SELECT 4
+spin SELECT 3
 wait 80
-expect mode 5
-expect page 4
+expect mode 9
+expect page 3
 shot bt.png
-spin SELECT 1
+spin SELECT -2
 wait 80
-expect page 5
+expect page 1
 shot midi_off.png
 # the sync is off: a clock and a start change nothing
 expect sync 0
@@ -39,9 +37,6 @@ expect sync 1
 spin K1 -1
 expect sync 0
 spin K1 2
-expect sync 1
-# the other knobs do nothing here
-spin K2 1
 expect sync 1
 # a clock every 21 ms is 119 BPM: the FM-1 follows it, its own tempo stays what it was
 clock 110
@@ -122,14 +117,12 @@ release REC
 release OCT-
 wait 100
 expect kick4 <10
-# the AUDIO page (GLO page 7): everything on at first; K1 the USB recording, K2 the speaker and the jack, K3 the USB level
-tap GLO
+# the AUDIO page (ENV's first): everything on at first; K1 the USB recording, K2 the speaker and the jack, K3 the USB level
+tap ENV
 spin SELECT -9
-wait 60
-spin SELECT 6
 wait 80
-expect mode 5
-expect page 6
+expect mode 9
+expect page 0
 expect out_off 0
 expect usb_audio_full 0
 shot audio_on.png

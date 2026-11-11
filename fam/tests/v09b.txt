@@ -88,14 +88,17 @@ tap GLO
 tap GLO
 expect page 3
 tap GLO
+expect page 0
+# ENV: the settings, five pages
+tap ENV
+expect mode 9
+expect page 0
+tap ENV
+tap ENV
+tap ENV
+tap ENV
 expect page 4
-tap GLO
-expect page 5
-tap GLO
-expect page 6
-tap GLO
-expect page 7
-tap GLO
+tap ENV
 expect page 0
 tap SAVE
 expect mode 8
@@ -105,10 +108,8 @@ spin SELECT 8
 expect page 5
 tap SAVE
 expect page 0
-# ENV and HOME do nothing for now (0.2.2); SAVE opens HOME
+# HOME does nothing alone; SAVE opens its pages
 tap SEQ
-tap ENV
-expect mode 0
 tap HOME
 expect mode 0
 tap EDIT

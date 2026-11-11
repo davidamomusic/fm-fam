@@ -1,7 +1,7 @@
 # FM-FAM v0.16: the BLUETOOTH page shows what the air is doing while the sound goes out by Bluetooth (receptions, losses, slots)
 wait 500
-tap GLO
-spin SELECT 4
+tap ENV
+spin SELECT 3
 spin K1 1
 expect bton 1
 bta add BUDS

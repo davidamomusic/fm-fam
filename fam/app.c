@@ -574,6 +574,7 @@ static struct {
     volatile uint8_t live;               /* a clock is coming in */
     volatile uint16_t bpm;               /* its tempo to the nearest BPM, 0 not measured yet */
     uint8_t ck;                          /* clocks since the last 16th, 0..5 */
+    uint8_t c24;                         /* clocks since the last quarter note, 0..23 (the pulse sync's count) */
     uint8_t n, w;                        /* clock times kept, and where the next one goes */
     uint32_t now, last;                  /* samples rendered; when the last clock was read */
     uint32_t tnow;                       /* this block's start, on the clock's time base */
@@ -581,6 +582,83 @@ static struct {
     uint32_t t[XS_WIN];
 } xs;
 static volatile uint32_t loud_at;        /* xs.now when the output was last above a whisper (the autosave waits for silence) */
+
+static volatile uint8_t midi_set[8];     /* the MIDI pages' settings (kept in OBJ_BT, btst_t.set): */
+#define MS_INCH midi_set[0]              /* notes in: 0 every channel, 1..16 that one */
+#define MS_OUTCH midi_set[1]             /* the synth's steps out as notes: 0 off, 1..16 the channel */
+#define MS_KICKCH midi_set[2]            /* the kick's steps out as note 36: 0 off, 1..16 the channel */
+#define MS_CKOUT midi_set[3]             /* 1: the MIDI clock, start and stop go out */
+#define MS_PULSE midi_set[4]             /* the pulse sync on the jack: 0 off, 1..4 = 1, 2, 4, 24 pulses a quarter note */
+static const uint8_t PULSE_PPQN[5] = {0, 1, 2, 4, 24};
+
+/* What goes out. The clock: 24 a quarter note while the sequencer runs on its own tempo, counted in samples by the render
+ * (so it cannot drift from the steps); each is handed, with the time it is due, to the 1 kHz tick, which sends it (on the
+ * host the render sends them, a block at a time). Start goes out when the sequencer starts, stop when it stops. Following a
+ * clock that comes in, the FM-1 sends none. The pulse sync: a 5 ms pulse on the left of the FM-1's own output (the tip of
+ * the jack) every 24 / n clocks, the sound in mono on the right; app_line_out writes it, sample by sample. The notes: the
+ * synth's steps on a channel, the kick's as note 36 on another. */
+#define CO_LAT 256.0f                    /* a clock leaves this many samples after the render placed it: when its block sounds */
+#define CO_Q 16u
+#define PULSE_LEN 220                    /* samples: 5 ms */
+#define PULSE_AMP 7500000                /* of 8388607 */
+static struct {
+    float left;                          /* samples to the next clock */
+    uint32_t n;                          /* clocks since the start */
+    uint32_t q[CO_Q];                    /* when each is due (XS_UNIT's time base) */
+    volatile uint8_t head, tail;         /* the render puts at head, the tick takes from tail */
+    uint8_t ext_start;                   /* seq_start comes from the clock that comes in: no start goes out */
+    float pwait;                         /* samples from the block's start to the next pulse (< 0: none due) */
+    int32_t pleft;                       /* samples of pulse still to write */
+    uint32_t pulses;                     /* pulses written (a test counts them) */
+    uint32_t notes_in;                   /* note-ons taken (a test counts them) */
+    int8_t note, knote;                  /* the notes sounding out there (-1 none), */
+    uint8_t nch, kch;                    /* the channels they went out on, */
+    float nleft, kleft;                  /* and the samples until their note-offs */
+} co = {.pwait = -1.0f, .note = -1, .knote = -1};
+static void mo_send(uint32_t status, uint32_t d1, uint32_t d2)
+{
+    plat_midi_send((status >> 4) | (status << 8) | (d1 << 16) | (d2 << 24), TO_USB | TO_BLE);
+}
+static void mo_rt(uint32_t b) { plat_midi_send(0x0Fu | (b << 8), TO_USB | TO_BLE); }
+static void mo_offs(void)                /* the notes out there end */
+{
+    if (co.note >= 0)
+        mo_send(0x80u | co.nch, (uint32_t)co.note, 0);
+    if (co.knote >= 0)
+        mo_send(0x80u | co.kch, (uint32_t)co.knote, 0);
+    co.note = co.knote = -1;
+}
+static void mo_note(float note, float vel, float len)    /* a hit of the synth: its note out */
+{
+    int nn = (int)(note + 0.5f), v = (int)(vel * 127.0f + 0.5f);
+    if (!MS_OUTCH || plat_midi_out_room(TO_USB | TO_BLE) < 4u)
+        return;
+    if (co.note >= 0)
+        mo_send(0x80u | co.nch, (uint32_t)co.note, 0);
+    co.nch = (uint8_t)(MS_OUTCH - 1u);
+    co.note = (int8_t)(nn < 0 ? 0 : nn > 127 ? 127 : nn);
+    co.nleft = len;
+    mo_send(0x90u | co.nch, (uint32_t)co.note, (uint32_t)(v < 1 ? 1 : v > 127 ? 127 : v));
+}
+static void mo_kick(float gain, int acc) /* a hit of the kick: note 36 out */
+{
+    int v = (int)(gain * (acc ? 127.0f : 100.0f) + 0.5f);
+    if (!MS_KICKCH || plat_midi_out_room(TO_USB | TO_BLE) < 4u)
+        return;
+    if (co.knote >= 0)
+        mo_send(0x80u | co.kch, (uint32_t)co.knote, 0);
+    co.kch = (uint8_t)(MS_KICKCH - 1u);
+    co.knote = 36;
+    co.kleft = 2205.0f;                  /* 50 ms */
+    mo_send(0x90u | co.kch, 36u, (uint32_t)(v < 1 ? 1 : v > 127 ? 127 : v));
+}
+static void clock_send(uint32_t now)     /* the clocks that are due leave (the tick; the render on the host) */
+{
+    while (co.tail != co.head && (int32_t)(now - co.q[co.tail]) >= 0) {
+        mo_rt(0xF8u);
+        co.tail = (uint8_t)((co.tail + 1u) % CO_Q);
+    }
+}
 
 static void tempo_set(void)
 {
@@ -668,6 +746,7 @@ static void kick_trigger(const pat_t *p, uint32_t s)
         sq.kpit = (float)p->kpit[s];
         sq.kgain = (float)p->kvol[s] * (1.0f / 127.0f);
         dsp_kick_hit(1.0f, p->ktrig[s] == 2, sq.kpit, sq.kgain);
+        mo_kick(sq.kgain, p->ktrig[s] == 2);
         sq.ktrigs++;
         if (hits > 1u) {
             sq.kn = hits - 1u;
@@ -699,6 +778,7 @@ static void step_trigger(uint32_t s)
         sq.rseq = (float)p->pit[s];
         sq.racc = p->trig[s] == 2;
         dsp_syn_trig(sq.rnote, sq.rvel, sq.racc, sq.rseq, gate);
+        mo_note(sq.rnote, sq.rvel, gate > 0.0f ? gate : per * 0.9f);
         sq.trigs++;
         if (hits > 1u) {
             sq.rn = hits - 1u;
@@ -712,6 +792,7 @@ static void step_trigger(uint32_t s)
 static void ratchet_hit(void)
 {
     dsp_syn_trig(sq.rnote, sq.rvel * 0.9f, 0, sq.rseq, sq.rgate);
+    mo_note(sq.rnote, sq.rvel * 0.9f, sq.rgate > 0.0f ? sq.rgate : sq.rper * 0.9f);
     sq.trigs++;
 }
 
@@ -779,12 +860,22 @@ static void seq_start(void)
             }
     }
     sq.running = 1;
+    co.left = 0.0f;                      /* the clock out: its first with the first step */
+    co.n = 0;
+    co.tail = co.head;
+    if (MS_CKOUT && !co.ext_start)
+        mo_rt(0xFAu);
 }
 static void seq_stop(void)
 {
+    if (sq.running && MS_CKOUT && !(xs.on && xs.live))
+        mo_rt(0xFCu);
     sq.running = 0;
     sq.rn = 0;
     sq.kn = 0;
+    co.tail = co.head;
+    co.pwait = -1.0f;
+    mo_offs();
 }
 
 /* --------------------------------------------------------------- store --- */
@@ -1057,6 +1148,7 @@ typedef struct {
     uint8_t on, has, quality, midioff;   /* on: Bluetooth is on; has: r holds what the radio kept; quality: 0 HIGH 1 MID 2 LOW (the
                                           * stream's bits); midioff: the Bluetooth MIDI advertising is off while headphones play */
     struct plat_ble_rec r;
+    uint8_t set[8];                      /* the MIDI pages' settings (MS_*): added in 0.2.7, a record without them reads as zeros */
 } btst_t;
 static btst_t bts;
 #define BT_QUAL ((uint32_t)bts.quality & 3u)   /* the stream's quality (bit 7 of the byte is the MIDI sync) */
@@ -1091,11 +1183,30 @@ int app_ble_save(const struct plat_ble_rec *r)
 static void bt_load(void)
 {
     uint8_t *b = (uint8_t *)&bts;
-    if (plat_store_load(OBJ_BT, &bts, sizeof bts) != (int)sizeof bts || bts.magic != BT_MAGIC) {
+    int got;
+    for (uint32_t i = 0; i < sizeof bts; i++)
+        b[i] = 0;
+    got = plat_store_load(OBJ_BT, &bts, sizeof bts);
+    if ((got != (int)sizeof bts && got != (int)(sizeof bts - sizeof bts.set)) || bts.magic != BT_MAGIC) {
         for (uint32_t i = 0; i < sizeof bts; i++)
             b[i] = 0;
         bts.magic = BT_MAGIC;
     }
+    if (got != (int)sizeof bts)          /* (a record of before 0.2.7: the MIDI settings at their first values) */
+        for (uint32_t i = 0; i < sizeof bts.set; i++)
+            bts.set[i] = 0;
+    for (uint32_t i = 0; i < sizeof bts.set; i++)
+        midi_set[i] = bts.set[i];
+    if (MS_INCH > 16u)
+        MS_INCH = 0;
+    if (MS_OUTCH > 16u)
+        MS_OUTCH = 0;
+    if (MS_KICKCH > 16u)
+        MS_KICKCH = 0;
+    if (MS_CKOUT > 1u)
+        MS_CKOUT = 0;
+    if (MS_PULSE > 4u)
+        MS_PULSE = 0;
     if (bts.on > 1u)
         bts.on = 0;
     if (bts.has > 1u)
@@ -1299,7 +1410,7 @@ static void sync_off(void)               /* no clock any more (or the setting of
     xs.live = 0;
     xs.bpm = 0;
     xs.per = 0.0f;
-    xs.n = xs.w = xs.ck = 0;
+    xs.n = xs.w = xs.ck = xs.c24 = 0;
     if (sq.left > XS_WAIT * 0.5f)
         sq.left = 0.0f;
     tempo_set();
@@ -1342,9 +1453,15 @@ static void sync_rt(uint32_t b, uint32_t t)      /* a real-time byte that landed
             sq.left = sync_at(t) + ((st & 1u) ? sq.len * (float)pats[sq.cur].swing * (0.33f / 127.0f) : 0.0f);
         }
         xs.ck = (uint8_t)((xs.ck + 1u) % 6u);
+        if (MS_PULSE && sq.running && xs.c24 % (24u / PULSE_PPQN[MS_PULSE]) == 0u)   /* the pulse sync follows the clock too */
+            co.pwait = sync_at(t);
+        xs.c24 = (uint8_t)((xs.c24 + 1u) % 24u);
     } else if (b == 0xFAu) {             /* start: from the first step, at the next clock */
         xs.ck = 0;
+        xs.c24 = 0;
+        co.ext_start = 1;
         seq_start();
+        co.ext_start = 0;
         sq.left = XS_WAIT;
     } else if (b == 0xFBu) {             /* continue: where it stopped */
         if (!sq.running) {
@@ -1366,6 +1483,10 @@ static void midi_in(void)
                 sync_rt((pkt >> 8) & 0xFFu, FM1B_MIDI_STAMP ? plat_midi_in_t24() : xs.now);
             continue;
         }
+        if (MS_INCH && st >= 0x80u && st <= 0xE0u && ((pkt >> 8) & 0x0Fu) != (uint32_t)MS_INCH - 1u)
+            continue;                    /* (another channel) */
+        if (st == 0x90u && d2)
+            co.notes_in++;
         if (st == 0x90u && d2) {
             if (d1 == 36u) {
                 dsp_kick_trig((float)d2 * (1.0f / 127.0f), d2 > 110u);
@@ -1386,6 +1507,31 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     midi_in();
     if (xs.live && (!xs.on || xs.now - xs.last > 22050u))    /* half a second without a clock */
         sync_off();
+    if (co.note >= 0 && (co.nleft -= (float)n) <= 0.0f) {    /* the notes out there: their ends */
+        mo_send(0x80u | co.nch, (uint32_t)co.note, 0);
+        co.note = -1;
+    }
+    if (co.knote >= 0 && (co.kleft -= (float)n) <= 0.0f) {
+        mo_send(0x80u | co.kch, (uint32_t)co.knote, 0);
+        co.knote = -1;
+    }
+    if (sq.running && !xs.live && (MS_CKOUT || MS_PULSE)) {  /* the clock out, on the FM-1's own tempo */
+        float pos = co.left, per = sq.len * (1.0f / 6.0f);
+        while (pos < (float)n) {
+            if (MS_CKOUT) {
+                uint8_t h = (uint8_t)((co.head + 1u) % CO_Q);
+                if (h != co.tail) {
+                    co.q[co.head] = xs.tnow + (uint32_t)(((pos < 0.0f ? 0.0f : pos) + CO_LAT) * XS_UNIT);
+                    co.head = h;
+                }
+            }
+            if (MS_PULSE && co.n % (24u / PULSE_PPQN[MS_PULSE]) == 0u)
+                co.pwait = pos < 0.0f ? 0.0f : pos;
+            co.n++;
+            pos += per;
+        }
+        co.left = pos - (float)n;
+    }
     xs.now += n;
     while (done < n) {
         uint32_t run = n - done;
@@ -1402,6 +1548,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             }
             while (sq.kn && sq.kleft <= 0.0f) {
                 dsp_kick_hit(0.85f, 0, sq.kpit, sq.kgain);
+                mo_kick(sq.kgain * 0.85f, 0);
                 sq.ktrigs++;
                 sq.kn--;
                 sq.kleft += sq.kper;
@@ -1435,6 +1582,34 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         if (pk > 4096)                   /* (about -66 dB of full scale) */
             loud_at = xs.now;
     }
+#if !FM1B_MIDI_STAMP
+    clock_send(xs.now + (uint32_t)CO_LAT);       /* (no tick clock here: the block's clocks leave with it) */
+#endif
+}
+void app_tick(void)                      /* 1 kHz, in the timer interrupt: the clocks that are due leave */
+{
+#if FM1B_MIDI_STAMP
+    clock_send(plat_ticks24());
+#endif
+}
+void app_line_out(int32_t *lr, uint32_t n)       /* the FM-1's own output, after the USB recording took the block: the pulse sync */
+{
+    if (!MS_PULSE)
+        return;
+    for (uint32_t i = 0; i < n; i++) {
+        int32_t m = (lr[2u * i] >> 1) + (lr[2u * i + 1u] >> 1);
+        if (co.pwait >= 0.0f && (float)i >= co.pwait) {
+            co.pleft = PULSE_LEN;
+            co.pwait = -1.0f;
+            co.pulses++;
+        }
+        lr[2u * i] = co.pleft > 0 ? PULSE_AMP : 0;       /* left (the tip): the pulse */
+        if (co.pleft > 0)
+            co.pleft--;
+        lr[2u * i + 1u] = m;                             /* right (the ring): the sound, in mono */
+    }
+    if (co.pwait >= 0.0f)
+        co.pwait -= (float)n;
 }
 
 void app_panic(void)
@@ -1488,8 +1663,9 @@ void app_backup_restored(void)           /* the flash holds the restored set: lo
 /* ------------------------------------------------------------------- UI --- */
 /* The screen: a header (mode, page, preset, tempo), a strip of steps, the picture of the page, and a footer of four
  * quadrants, one for each of the knobs K1..K4. */
-enum { M_SEQ, M_SYN, M_PATCH, M_KICK, M_FX, M_PATT, M_RAND, M_SCALE, M_HOME, NMODE };
-static const uint8_t NPAGE[NMODE] = {3, 6, 1, 5, 7, 8, NRP, 2, 6};
+enum { M_SEQ, M_SYN, M_PATCH, M_KICK, M_FX, M_PATT, M_RAND, M_SCALE, M_HOME, M_SET, NMODE };
+enum { SP_AUDIO, SP_MIDI, SP_MIDI2, SP_BT, SP_VER, NSP };  /* ENV's pages (M_SET), in the order they come */
+static const uint8_t NPAGE[NMODE] = {3, 6, 1, 5, 7, 4, NRP, 2, 6, NSP};
 enum { F_NUM, F_SEMI, F_WAV16, F_WAV6, F_MODE, F_SW, F_TIME, F_NOTE, F_SCL, F_OCT, F_TRN, F_FINE, F_PCT, F_SPREAD, F_SLOPE, F_SLICE, F_ONOFF, F_SPEED };
 static const char *const SRC_NAME[NSRC] = {"NONE", "SEQP", "SEQV", "VEG", "FEG", "AEG", "S&H", "KEG"};
 static const char *const SRC_LONG[NSRC] = {"NONE", "SEQ PITCH", "SEQ VELOC", "VCO ENV", "VCF ENV", "VCA ENV", "S&H NOISE", "KICK ENV"};
@@ -1502,11 +1678,13 @@ static const char *const TIME8[8] = {"1/16", "1/8", "3/16", "1/4", "3/8", "1/2",
 static const char *const SLICE8[8] = {"1/8", "3/32", "1/16", "3/64", "1/32", "3/128", "1/64", "1/128"};
 static const char *const CMD_NAME[5] = {"PLAY", "COPY", "PASTE", "CLEAR", "RAND"};
 static const char *const FX_NAME[6] = {"CMP", "DLY", "REV", "STU", "DJF", "LIM"};
-static const char *const MODE_NAME[NMODE] = {"SEQ", "SYNTH", "PATCH", "KICK", "FX", "PATTERNS", "RANDOM", "SCALE", "SAVE"};
+static const char *const MODE_NAME[NMODE] = {"SEQ", "SYNTH", "PATCH", "KICK", "FX", "PATTERNS", "RANDOM", "SCALE", "SAVE", "SETUP"};
 static const char *const ACT_NAME[4] = {"LOAD", "SAVE", "RENAME", "CLEAR"};
 static const char *const KIND_NAME[NPK] = {"SYNTH", "KICK", "FX", "PATCH", "SCALE"};
 static const char *const HOME_TITLE[10] = {"PROJECTS", "SYNTH PRESETS", "KICK PRESETS", "FX PRESETS", "PATCH PRESETS", "SCALE PRESETS", "BUTTONS", "STEPS AND KEYS", "KNOBS AND FX", "SOUND"};
-static const char *const PATT_TITLE[8] = {"PATTERNS", "SONG", "PATTERN SOUND 1", "PATTERN SOUND 2", "HEADPHONES AND MIDI", "CLOCK SYNC", "OUTPUTS", "FIRMWARE"};
+static const char *const PATT_TITLE[4] = {"PATTERNS", "SONG", "PATTERN SOUND 1", "PATTERN SOUND 2"};
+static const char *const SET_TITLE[NSP] = {"OUTPUTS", "CLOCK AND SYNC", "CHANNELS", "HEADPHONES AND MIDI", "FIRMWARE"};
+static const char *const SET_NAME[NSP] = {"AUDIO", "MIDI", "MIDI", "BLUETOOTH", "VERSION"};
 static const char *const SEQ_TITLE[3] = {"STEP EDIT", "STEP AND PATTERN", "TEMPO"};
 static const char CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-";
 #define NCHARS 38
@@ -1529,7 +1707,7 @@ static const uint8_t FXI_MIX[6] = {1, 2, 4, 3, 0, 5};
 #define CL_PNL RGB(66, 78, 112)           /* panel rules */
 #define CL_R RGB(255, 80, 80)
 static const uint16_t QC[4] = {CL_G, CL_C, CL_M, CL_O};
-static const uint16_t MC[NMODE] = {CL_G, CL_C, CL_M, CL_O, CL_Y, CL_B, CL_R, RGB(170, 120, 255), CL_L};
+static const uint16_t MC[NMODE] = {CL_G, CL_C, CL_M, CL_O, CL_Y, CL_B, CL_R, RGB(170, 120, 255), CL_L, CL_B};
 
 typedef struct {
     const char *lab;
@@ -2606,7 +2784,7 @@ static void on_button(uint32_t b)
     switch (b) {
     case B_SEQ: mode_key(M_SEQ, 0xFFu); break;
     case B_EDIT: mode_key(M_SYN, 0xFFu); break;
-    case B_ENV: break;                           /* (does nothing for now) */
+    case B_ENV: mode_key(M_SET, 0xFFu); break;   /* the settings: audio, MIDI, Bluetooth, version */
     case B_LFO: mode_key(M_PATCH, 0xFFu); break;
     case B_FX: mode_key(M_FX, 0xFFu); break;
     case B_ARP: mode_key(M_KICK, 0xFFu); break;
@@ -2669,15 +2847,13 @@ static void on_algo(int32_t e)           /* ALGORITHM: to move inside a page (el
         ui.pdst = (uint8_t)clamp((int32_t)ui.pdst + e, 0, NPATCH - 1);
         ui.d_vis = ui.d_foot = 1;
         break;
-    case M_PATT:
-        if (pg() == 4u) {
+    case M_SET:
+        if (pg() == SP_BT)
             bt_move(e);
-            break;
-        }
-        if (pg() >= 5u) {
+        else
             bpm_add(e);
-            break;
-        }
+        break;
+    case M_PATT:
         if (pg() == 1)
             ui.slot = (uint8_t)clamp((int32_t)ui.slot + e, 0, 31);
         else
@@ -3055,7 +3231,7 @@ static void bt_poll(void)                /* the radio's news: a link that ended 
         app_say("BLUETOOTH", w == PLAT_BTA_LOST_LINK ? "LINK LOST" : w == PLAT_BTA_LOST_PAIRING ? "PAIRING FAILED" :
                 w == PLAT_BTA_LOST_ENCRYPTION ? "SECURITY FAILED" : w == PLAT_BTA_LOST_SETUP ? "SET-UP FAILED" :
                 w == PLAT_BTA_LOST_STREAMING ? "STREAM LOST" : "REFUSED");
-    if (ui.mode != M_PATT || ui.page[M_PATT] != 4u || now - t < 200u)
+    if (ui.mode != M_SET || ui.page[M_SET] != SP_BT || now - t < 200u)
         return;
     t = now;
     bt_list();
@@ -3092,8 +3268,16 @@ static void audio_knob(uint32_t kn, int32_t e)  /* AUDIO: K1 the USB recording, 
     }
     ui.d_vis = ui.d_foot = 1;
 }
-static void midi_knob(uint32_t kn, int32_t e)   /* MIDI: K1 the sync, right ON, left OFF */
+static void ms_keep(void)                /* a MIDI setting changed: to the record, written when things are quiet */
 {
+    for (uint32_t i = 0; i < sizeof bts.set; i++)
+        bts.set[i] = midi_set[i];
+    bts_dirty = 1;
+    bts_t = plat_ms();
+}
+static void midi_knob(uint32_t kn, int32_t e)   /* MIDI page 1: K1 the clock in, K2 the clock out (right ON, left OFF), K3 the pulse sync */
+{
+    static const char *const PP[5] = {"OFF", "1 PPQN", "2 PPQN", "4 PPQN", "24 PPQN"};
     if (kn == 0u) {
         uint8_t on = (uint8_t)(e > 0);
         if (on != xs.on) {
@@ -3101,27 +3285,52 @@ static void midi_knob(uint32_t kn, int32_t e)   /* MIDI: K1 the sync, right ON, 
             bts.quality = (uint8_t)((bts.quality & (uint8_t)~BQ_SYNC) | (on ? BQ_SYNC : 0u));
             bts_dirty = 1;
             bts_t = plat_ms();
-            app_say("MIDI SYNC", on ? "ON" : "OFF");
+            app_say("CLOCK IN", on ? "ON" : "OFF");
+        }
+    } else if (kn == 1u) {
+        uint8_t on = (uint8_t)(e > 0);
+        if (on != MS_CKOUT) {
+            MS_CKOUT = on;
+            ms_keep();
+            app_say("CLOCK OUT", on ? "ON" : "OFF");
+        }
+    } else if (kn == 2u) {
+        uint8_t v = (uint8_t)clamp((int32_t)MS_PULSE + (e > 0 ? 1 : -1), 0, 4);
+        if (v != MS_PULSE) {
+            MS_PULSE = v;
+            ms_keep();
+            app_say("PULSE OUT", PP[v]);
         }
     }
     ui.d_vis = ui.d_foot = ui.d_head = 1;
 }
+static void midi2_knob(uint32_t kn, int32_t e)  /* MIDI page 2: the channels, a click a channel */
+{
+    if (kn < 3u) {
+        volatile uint8_t *p = kn == 0u ? &MS_INCH : kn == 1u ? &MS_OUTCH : &MS_KICKCH;
+        uint8_t v = (uint8_t)clamp((int32_t)*p + e, 0, 16);
+        if (v != *p) {
+            if (kn)
+                mo_offs();               /* (a note out there ends on the channel it went out on) */
+            *p = v;
+            ms_keep();
+        }
+    }
+    ui.d_vis = ui.d_foot = 1;
+}
+static void set_knob(uint32_t kn, int32_t e)    /* ENV's pages */
+{
+    if (pg() == SP_AUDIO)
+        audio_knob(kn, e);
+    else if (pg() == SP_MIDI)
+        midi_knob(kn, e);
+    else if (pg() == SP_MIDI2)
+        midi2_knob(kn, e);
+    else if (pg() == SP_BT)
+        bt_knob(kn, e);
+}
 static void patt_knob(uint32_t kn, int32_t e)   /* PATTERNS: pick, command, bank, song / SONG: slot, pattern, clear, song / presets / Bluetooth */
 {
-    if (pg() == 4u) {
-        bt_knob(kn, e);
-        return;
-    }
-    if (pg() == 5u) {
-        midi_knob(kn, e);
-        return;
-    }
-    if (pg() == 6u) {
-        audio_knob(kn, e);
-        return;
-    }
-    if (pg() == 7u)
-        return;
     if (pg() == 0) {
         if (kn == 0)
             pick_pattern(clamp(((sq.queued >= 0 ? sq.queued : sq.cur) + e), 0, NPAT - 1));
@@ -3235,11 +3444,12 @@ static void preset_turn(int32_t e)      /* PRESETS: the sound of the mode */
 {
     int k;
     switch (ui.mode) {
-    case M_PATT:
-        if (pg() == 4u)
+    case M_SET:
+        if (pg() == SP_BT)
             bt_move(e);
-        else if (pg() < 4u)
-            pick_pattern(clamp(((sq.queued >= 0 ? sq.queued : sq.cur) + e), 0, NPAT - 1));
+        return;
+    case M_PATT:
+        pick_pattern(clamp(((sq.queued >= 0 ? sq.queued : sq.cur) + e), 0, NPAT - 1));
         return;
     case M_HOME:
         home_move(e);
@@ -3293,7 +3503,7 @@ static void input(void)
         ui.rec_chord = 0;
         ui.init_t = 0;
         if (ui.held_step != 0xFFu && ui.mode != M_KICK && ui.mode != M_RAND && ui.mode != M_FX && ui.mode != M_PATT &&
-            ui.mode != M_HOME && ui.mode != M_SCALE) {           /* a step held: its locks and its settings cleared */
+            ui.mode != M_HOME && ui.mode != M_SET && ui.mode != M_SCALE) {           /* a step held: its locks and its settings cleared */
             pat_t *p = cur_pat();
             uint32_t s = ui.held_step;
             p->lk_p[s][0] = p->lk_p[s][1] = 0;
@@ -3389,8 +3599,10 @@ static void input(void)
         if (ui.mode == M_FX) {
             if (d != was)
                 fx_key(k, d);
+        } else if (ui.mode == M_SET) {
+            ;                            /* (the settings pages have no keys) */
         } else if (ui.mode == M_PATT) {
-            if (d && !was && pg() < 4u)
+            if (d && !was)
                 pick_pattern((int)ui.bank * NPB + (int)k);
         } else if (ui.mode == M_RAND) {
             if (d && !was)
@@ -3425,7 +3637,7 @@ static void input(void)
             }
         }
     }
-    if (ui.mode == M_PATT && pg() < 4u) {   /* the black keys: the banks */
+    if (ui.mode == M_PATT) {             /* the black keys: the banks */
         for (k = 0; k < 11u; k++) {
             uint32_t bit = 1u << BK[k];
             if ((keys & bit) && !(ui.keys & bit)) {
@@ -3470,6 +3682,8 @@ static void input(void)
             patch_knob(k, e);
         else if (ui.mode == M_PATT)
             patt_knob(k, e);
+        else if (ui.mode == M_SET)
+            set_knob(k, e);
         else if (ui.mode == M_RAND)
             rand_knob(k, e);
         else if (ui.mode == M_HOME)
@@ -3487,7 +3701,8 @@ static void input(void)
         uint32_t lit_k = 0, dim_k = 0, mid_k = 0;
         uint32_t lit_b = 1u << (ui.mode == M_SEQ ? B_SEQ : ui.mode == M_SYN ? B_EDIT :
                          ui.mode == M_PATCH ? B_LFO : ui.mode == M_KICK ? B_ARP : ui.mode == M_FX ? B_FX :
-                         ui.mode == M_PATT ? B_GLO : ui.mode == M_RAND ? B_REC : ui.mode == M_SCALE ? B_SEL : B_SAVE);
+                         ui.mode == M_PATT ? B_GLO : ui.mode == M_RAND ? B_REC : ui.mode == M_SCALE ? B_SEL :
+                         ui.mode == M_SET ? B_ENV : B_SAVE);
         pat_t *p = cur_pat();
         if (ui.mode == M_FX) {
             const uint8_t *B = pg() == 6u ? FXB_MIX : FXB_PAGE;
@@ -3520,7 +3735,7 @@ static void input(void)
                     else if (pj_used[k])
                         dim_k |= 1u << WK[k];
                 }
-        } else if (ui.mode == M_PATT && pg() < 4u) {
+        } else if (ui.mode == M_PATT) {
             for (k = 0; k < 16u; k++) {
                 int pi = (int)ui.bank * NPB + (int)k;
                 if (pi == sq.cur)
@@ -3652,19 +3867,20 @@ static const char *page_title(void)
     case M_SEQ: return SEQ_TITLE[pg()];
     case M_PATCH: return "VIRTUAL PATCHBAY";
     case M_PATT: return PATT_TITLE[pg()];
+    case M_SET: return SET_TITLE[pg()];
     case M_HOME: return HOME_TITLE[pg()];
     case M_RAND: return rp_title((int)pg());
     case M_KICK: return kpg() == 3u ? "KICK SEQUENCE 1" : kpg() == 4u ? "KICK SEQUENCE 2" : r->title;
     default: return r ? r->title : "";
     }
 }
-static uint16_t head_col(void) { return ui.mode == M_PATT && pg() == 4u ? CL_G : MC[ui.mode]; }   /* BLUETOOTH: green */
+static uint16_t head_col(void) { return ui.mode == M_SET && pg() == SP_BT ? CL_G : MC[ui.mode]; }   /* BLUETOOTH: green */
 static void draw_head(void)
 {
     char t[40], n[12];
     int32_t w, x, i;
     uint16_t mc = head_col();
-    const char *mn = ui.mode != M_PATT ? MODE_NAME[ui.mode] : pg() == 4u ? "BLUETOOTH" : pg() == 5u ? "MIDI" : pg() == 6u ? "AUDIO" : pg() == 7u ? "VERSION" : MODE_NAME[ui.mode];
+    const char *mn = ui.mode == M_SET ? SET_NAME[pg()] : MODE_NAME[ui.mode];
     cv_begin(240, 32, C_BLACK);
     w = text_w(&FONT_B, mn);
     cv_rect(3, 1, w + 10, 18, mc);
@@ -3715,6 +3931,8 @@ static void draw_head(void)
             pre_label(PK_SCALE, t);
         } else if (ui.mode == M_RAND) {
             scopy(t, rp_mode((int)pg()), 40);
+        } else if (ui.mode == M_SET) {
+            t[0] = 0;
         } else if (ui.mode == M_HOME) {
             if (pg() >= 6u)
                 scopy(t, "V" APP_VERSION, 40);
@@ -3908,18 +4126,39 @@ static void foot_cells(fcell_t *c)
             cell_set(&c[1], "TO BANK", "TURN >", -1, 0);
             cell_set(&c[2], "TO ALL", "TURN >", -1, 0);
             cell_set(&c[3], "RESET", "TURN >", -1, 0);
-        } else if (pg() == 5u) {           /* MIDI */
-            cell_set(&c[0], "MIDI SYNC", xs.on ? "ON" : "OFF", xs.on ? 127 : 0, 0);
-            for (k = 1; k < 4; k++) {
-                cell_set(&c[k], "-", "", -1, 0);
-                c[k].dim = 1;
-            }
-        } else if (pg() == 7u) {           /* VERSION */
+        }
+    } else if (ui.mode == M_SET) {
+        static const char *const PP[5] = {"OFF", "1 PPQN", "2 PPQN", "4 PPQN", "24 PPQN"};
+        if (pg() == SP_MIDI) {
+            cell_set(&c[0], "CLOCK IN", xs.on ? "ON" : "OFF", xs.on ? 127 : 0, 0);
+            cell_set(&c[1], "CLOCK OUT", MS_CKOUT ? "ON" : "OFF", MS_CKOUT ? 127 : 0, 0);
+            cell_set(&c[2], "PULSE OUT", PP[MS_PULSE], MS_PULSE * 127 / 4, 0);
+            cell_set(&c[3], "-", "", -1, 0);
+            c[3].dim = 1;
+        } else if (pg() == SP_MIDI2) {
+            if (MS_INCH)
+                int_text(MS_INCH, t);
+            else
+                scopy(t, "ALL", 16);
+            cell_set(&c[0], "IN CH", t, MS_INCH * 127 / 16, 0);
+            if (MS_OUTCH)
+                int_text(MS_OUTCH, t);
+            else
+                scopy(t, "OFF", 16);
+            cell_set(&c[1], "OUT CH", t, MS_OUTCH * 127 / 16, 0);
+            if (MS_KICKCH)
+                int_text(MS_KICKCH, t);
+            else
+                scopy(t, "OFF", 16);
+            cell_set(&c[2], "KICK CH", t, MS_KICKCH * 127 / 16, 0);
+            cell_set(&c[3], "-", "", -1, 0);
+            c[3].dim = 1;
+        } else if (pg() == SP_VER) {
             for (k = 0; k < 4; k++) {
                 cell_set(&c[k], "-", "", -1, 0);
                 c[k].dim = 1;
             }
-        } else if (pg() == 6u) {           /* AUDIO */
+        } else if (pg() == SP_AUDIO) {
             int uo = !(bts.quality & BQ_USB_OFF), lo = !(bts.quality & BQ_LINE_OFF), fu = (bts.quality & BQ_USB_FULL) != 0;
             cell_set(&c[0], "USB AUDIO", uo ? "ON" : "OFF", uo ? 127 : 0, 0);
             cell_set(&c[1], "SPK+JACK", lo ? "ON" : "OFF", lo ? 127 : 0, 0);
@@ -4826,14 +5065,16 @@ static void vis_bt(void)                 /* BLUETOOTH: its state, and the device
     }
 }
 
-static void vis_midi(void)               /* MIDI: the sync, the clock that comes in, and Link's place */
+static void vis_midi(void)               /* MIDI page 1: the clock in, the clock out, the pulse sync */
 {
-    char t[40], n[12];
-    cv_text(6, 2, &FONT_M, xs.on ? "MIDI SYNC ON" : "MIDI SYNC OFF", xs.on ? CL_G : CL_L);
+    char t[44], n[12];
+    int32_t x;
+    x = cv_text(6, 2, &FONT_M, "CLOCK IN ", CL_W);
+    cv_text(x, 2, &FONT_M, xs.on ? "ON" : "OFF", xs.on ? CL_G : CL_L);
     if (!xs.on) {
-        cv_text(6, 27, &FONT_T, "K1 TURNED TO THE RIGHT: SWITCH IT ON", CL_Y);
+        cv_text(6, 26, &FONT_T, "THE FM-1 KEEPS ITS OWN TEMPO", CL_L);
     } else if (xs.live) {
-        scopy(t, "CLOCK IN: ", 40);
+        scopy(t, "FOLLOWING A CLOCK: ", 44);
         if (xs.bpm) {
             int_text(xs.bpm, n);
             text_cat(t, n);
@@ -4841,15 +5082,60 @@ static void vis_midi(void)               /* MIDI: the sync, the clock that comes
         } else {
             text_cat(t, "...");
         }
-        cv_text(6, 27, &FONT_T, t, CL_G);
+        cv_text(6, 26, &FONT_T, t, CL_G);
     } else {
-        cv_text(6, 27, &FONT_T, "NO CLOCK: THE FM-1 KEEPS ITS OWN TEMPO", CL_Y);
+        cv_text(6, 26, &FONT_T, "NO CLOCK YET (USB, MIDI JACK, BLUETOOTH)", CL_Y);
     }
-    cv_text(6, 48, &FONT_T, "THE STEPS FOLLOW THE MIDI CLOCK, AND ITS", CL_L);
-    cv_text(6, 62, &FONT_T, "START AND STOP RUN THE SEQUENCER", CL_L);
-    cv_text(6, 80, &FONT_T, "THE CLOCK COMES IN FROM USB, THE MIDI JACK", CL_L);
-    cv_text(6, 94, &FONT_T, "OR BLUETOOTH. A STEP SOUNDS 6.5 MS AFTER", CL_L);
-    cv_text(6, 108, &FONT_T, "ITS CLOCK, ALWAYS THE SAME", CL_L);
+    x = cv_text(6, 42, &FONT_M, "CLOCK OUT ", CL_W);
+    cv_text(x, 42, &FONT_M, MS_CKOUT ? "ON" : "OFF", MS_CKOUT ? CL_G : CL_L);
+    cv_text(6, 66, &FONT_T, MS_CKOUT ? (xs.on && xs.live ? "WAITS WHILE A CLOCK COMES IN" : "CLOCK, START, STOP TO USB AND BLUETOOTH") :
+            "NO CLOCK IS SENT", MS_CKOUT ? CL_G : CL_L);
+    x = cv_text(6, 82, &FONT_M, "PULSE OUT ", CL_W);
+    if (MS_PULSE) {
+        int_text(PULSE_PPQN[MS_PULSE], n);
+        scopy(t, n, 44);
+        text_cat(t, " PPQN");
+        cv_text(x, 82, &FONT_M, t, CL_O);
+        cv_text(6, 106, &FONT_T, "JACK: PULSES ON THE LEFT, SOUND ON THE RIGHT", CL_O);
+    } else {
+        cv_text(x, 82, &FONT_M, "OFF", CL_L);
+        cv_text(6, 106, &FONT_T, "SYNC PULSES FOR GEAR WITH A SYNC INPUT", CL_L);
+    }
+}
+static void vis_midi2(void)              /* MIDI page 2: the channels */
+{
+    char t[44], n[12];
+    int32_t x;
+    x = cv_text(6, 2, &FONT_M, "IN ", CL_W);
+    if (MS_INCH) {
+        int_text(MS_INCH, n);
+        scopy(t, "CHANNEL ", 44);
+        text_cat(t, n);
+    } else {
+        scopy(t, "ALL CHANNELS", 44);
+    }
+    cv_text(x, 2, &FONT_M, t, CL_G);
+    cv_text(6, 26, &FONT_T, "NOTES PLAY THE SYNTH; NOTE 36 (C1), THE KICK", CL_L);
+    x = cv_text(6, 42, &FONT_M, "OUT ", CL_W);
+    if (MS_OUTCH) {
+        int_text(MS_OUTCH, n);
+        scopy(t, "CHANNEL ", 44);
+        text_cat(t, n);
+    } else {
+        scopy(t, "OFF", 44);
+    }
+    cv_text(x, 42, &FONT_M, t, MS_OUTCH ? CL_C : CL_L);
+    cv_text(6, 66, &FONT_T, "THE SYNTH'S STEPS AS NOTES", CL_L);
+    x = cv_text(6, 82, &FONT_M, "KICK ", CL_W);
+    if (MS_KICKCH) {
+        int_text(MS_KICKCH, n);
+        scopy(t, "CHANNEL ", 44);
+        text_cat(t, n);
+    } else {
+        scopy(t, "OFF", 44);
+    }
+    cv_text(x, 82, &FONT_M, t, MS_KICKCH ? CL_O : CL_L);
+    cv_text(6, 106, &FONT_T, "THE KICK'S STEPS AS NOTE 36. USB AND BLUETOOTH", CL_L);
 }
 static void vis_version(void)            /* VERSION: the firmware and what the audio costs */
 {
@@ -4885,22 +5171,6 @@ static void vis_audio(void)              /* AUDIO: where the sound goes */
 static void vis_patt(void)
 {
     int32_t i, k;
-    if (pg() == 4u) {
-        vis_bt();
-        return;
-    }
-    if (pg() == 5u) {
-        vis_midi();
-        return;
-    }
-    if (pg() == 6u) {
-        vis_audio();
-        return;
-    }
-    if (pg() == 7u) {
-        vis_version();
-        return;
-    }
     if (pg() == 0) {
         for (i = 0; i < NBANK; i++) {
             char l[2];
@@ -5193,6 +5463,18 @@ static void draw_vis(void)
     case M_KICK: vis_kick(); break;
     case M_FX: vis_fx(); break;
     case M_PATT: vis_patt(); break;
+    case M_SET:
+        if (pg() == SP_AUDIO)
+            vis_audio();
+        else if (pg() == SP_MIDI)
+            vis_midi();
+        else if (pg() == SP_MIDI2)
+            vis_midi2();
+        else if (pg() == SP_BT)
+            vis_bt();
+        else
+            vis_version();
+        break;
     case M_RAND: vis_rand(); break;
     case M_SCALE: vis_scale(); break;
     default:
@@ -5240,7 +5522,7 @@ void app_frame(void)
         if (x != xlast) {
             xlast = x;
             ui.d_head = 1;
-            if (ui.mode == M_PATT && pg() == 5u)
+            if (ui.mode == M_SET && pg() == SP_MIDI)
                 ui.d_vis = 1;
         }
     }
@@ -5248,7 +5530,7 @@ void app_frame(void)
         ui.cpu_t = now;
         if (plat_cpu_pct() != ui.cpu_last) {
             ui.cpu_last = plat_cpu_pct();
-            if (ui.mode == M_PATT && pg() == 7u)
+            if (ui.mode == M_SET && pg() == SP_VER)
                 ui.d_vis = 1;
         }
     }
@@ -5579,6 +5861,12 @@ int app_expect(const char *what, int *got)
         *got = sq.running;
     else if (!strcmp(what, "outbits"))
         *got = bts.quality >> 4;
+    else if (!strncmp(what, "ms", 2) && what[2])
+        *got = midi_set[atoi(what + 2) & 7];
+    else if (!strcmp(what, "notes_in"))
+        *got = (int)co.notes_in;
+    else if (!strcmp(what, "pulses"))
+        *got = (int)co.pulses;
     else if (!strcmp(what, "sync"))
         *got = xs.on;
     else if (!strcmp(what, "extlive"))

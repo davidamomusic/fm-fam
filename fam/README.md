@@ -23,7 +23,7 @@ A drum synth and 16-step sequencer firmware for the M-VAVE FM-1, built on [fm1-b
 > By installing or using FM-FAM you accept this.
 
 Everything on the screen is in English. The controls are on the [cheat sheet](docs/FM-FAM-cheatsheet.pdf); the version of the firmware
-is on the last page of `GLO` (VERSION), with the audio's CPU load.
+is on the last page of `ENV` (VERSION), with the audio's CPU load.
 
 ## Install
 
@@ -90,6 +90,24 @@ encoder moves to the next part (`choice_step()` in `fam/app.c`), and the lock of
 of SEQ and of the KICK sequence start at the same x (`col_x0()`). Tested by `fam/tests/v021a.txt` (the choices) and by `fam/tests/v021b.txt` with
 `python3 fam/tests/align_check.py DIRECTORY` (the picture, at seven lengths).
 
+What 0.2.7 added (it moves some of what follows: read this first):
+
+- `ENV` opens the settings, five pages in this order: AUDIO, MIDI (clock and sync), MIDI (channels), BLUETOOTH, VERSION. `GLO` has
+  its four pages of patterns again.
+- MIDI clock out (MIDI page 1, K2): 24 clocks a quarter note, start and stop, to USB and Bluetooth, while the sequencer runs on its
+  own tempo. The render counts the clocks in samples, so they cannot drift from the steps, and hands each with its time to the 1 kHz
+  tick (`app_tick`, `clock_send()`), which sends it; following a clock that comes in, none goes out.
+- Pulse sync out (MIDI page 1, K3), for gear that takes sync pulses on a jack: 1, 2, 4 or 24 pulses a quarter note, 5 ms each, on the
+  left channel of the FM-1's own output (the tip of the headphone jack), with the sound in mono on the right. `app_line_out()` writes
+  it, a hook FM-FAM adds to the platform after the USB recording has taken the block (`APP_LINE_OUT` in `device/main_fm1.c` and
+  `host/plat_host.c`), so the recording stays clean. With a clock coming in, the pulses follow that clock.
+- The FM-1 has no way to take sync pulses in: its MIDI jack is an input for MIDI only and there is no analog input. It follows MIDI clock.
+- Channels (MIDI page 2): K1 the channel notes come in on (all, or one), K2 the channel the synth's steps go out on as notes, K3 the
+  channel the kick's steps go out on as note 36; out is off at first. The FM-1's MIDI jack is an input, so notes and clock go out by
+  USB and Bluetooth.
+- The settings live in `btst_t.set` (the Bluetooth object grew by eight bytes; a record of an older version loads as it is, with the
+  MIDI settings at their first values). Test: `fam/tests/v027a.txt`.
+
 What 0.2.2 to 0.2.6 added:
 
 - Buttons. `SAVE` opens the projects and the presets (six pages; the mode is called SAVE). `HOME` and `ENV` do nothing alone;
@@ -120,13 +138,13 @@ What 0.2.2 to 0.2.6 added:
   synth that is a drum between the mids and the lows (a pitch that falls, no attack, a short decay, no hat sounds).
 - Tests: `fam/tests/v026a.txt`, `fam/tests/v022a.txt` (the sync, the AUDIO page, the buttons) and `fam/tests/v024a.txt` (the random's caps, the pages, the melody).
 
-Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; a package is `fm-fam-0.2.6.fwsc` and its tag `v0.2.6`); the
+Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; a package is `fm-fam-0.2.7.fwsc` and its tag `v0.2.7`); the
 releases before it are 0.19 and 0.20.
 
 ## Identity and package
 
 The identity is `FM-1_111` in every release; `fam/release.sh` sets it. The same text is in the package and in the
-firmware. The version of the app is `APP_VERSION` in `fam/app.h`, shown on the VERSION page (`GLO`, the last page).
+firmware. The version of the app is `APP_VERSION` in `fam/app.h`, shown on the VERSION page (`ENV`, the last page).
 
 `fam/release.sh` writes `fam/build/fm-fam.fwsc`, the package of a release: the firmware and fm1-base's own update
 loader (felucca-bsp's, built from source in `bsp/loader`). With the same toolchain, a release asset is what this
