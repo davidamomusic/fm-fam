@@ -1,0 +1,85 @@
+# FM-FAM v0.2.9: the mutes (OCT+ and the last two white keys, on any page), the mixer's last black key, and the
+# percussion random as electronic toms
+#   fam/build/host/fm-fam_host fam/tests/v029a.txt DIRECTORY
+wait 3000
+expect mute_k 0
+expect mute_s 0
+# the last white key alone mutes nothing
+tap SEQ
+tapkey w15
+wait 60
+expect mute_k 0
+# OCT+ and the last white key: the kick is muted; its line makes no hit while it is
+tap PLAY
+wait 1200
+press OCT+
+wait 60
+tapkey w15
+wait 60
+release OCT+
+wait 60
+expect mute_k 1
+expect mute_s 0
+shot mute_k.png
+# OCT+ and the last but one: the synth
+press OCT+
+wait 60
+tapkey w14
+wait 60
+release OCT+
+wait 60
+expect mute_s 1
+shot mute_both.png
+tap PLAY
+wait 200
+# it works on another page too, and again switches them back on
+tap FX
+press OCT+
+wait 60
+tapkey w15
+tapkey w14
+wait 60
+release OCT+
+wait 60
+expect mute_k 0
+expect mute_s 0
+expect mode 4
+# OCT+ + HOME, six times: an electronic tom every time: a low pitch that falls, no attack, no sync, a decay that rings
+tap SEQ
+press OCT+
+wait 60
+tap HOME
+wait 100
+expect syn0 <65
+expect syn0 >31
+expect syn3 >49
+expect syn9 0
+expect syn17 0
+expect syn18 >34
+expect syn13 <26
+expect kick6 <101
+tap HOME
+wait 100
+expect syn0 <65
+expect syn3 >49
+expect syn17 0
+expect syn18 >34
+tap HOME
+wait 100
+expect syn0 <65
+expect syn3 >49
+expect syn18 >34
+tap HOME
+wait 100
+expect syn0 <65
+expect syn18 >34
+tap HOME
+wait 100
+expect syn0 <65
+expect syn18 >34
+tap HOME
+wait 100
+expect syn0 <65
+expect syn18 >34
+release OCT+
+wait 100

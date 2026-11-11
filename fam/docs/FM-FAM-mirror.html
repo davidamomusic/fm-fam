@@ -1969,7 +1969,7 @@ const BETA_NOTE = "FM-FAM is beta software and can fail: you do this at your own
 // u16 count (4), u16 length of the app's version, that text, then the four parts (u16 index, u16 length, u32 CRC-32, the
 // bytes) and the CRC-32 of everything before.
 const PJ = (() => {
-  const PROJ0 = 18, SLOTS = 4, PER = 4, MAXLEN = 3840, PN = 9, FILE_VERSION = 1, APP = "0.2.8";
+  const PROJ0 = 18, SLOTS = 4, PER = 4, MAXLEN = 3840, PN = 9, FILE_VERSION = 1, APP = "0.2.9";
   const PRJ_MAGIC = [0x33, 0x4A, 0x46, 0x4D];                    // app.c PRJ_MAGIC 0x4D464A33, little-endian
   const FILE_MAGIC = [0x46, 0x41, 0x4D, 0x50];                   // "FAMP"
   const u16 = (b, o) => b[o] | b[o + 1] << 8;

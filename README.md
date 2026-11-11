@@ -28,7 +28,8 @@ Each acts at once, when the second button goes down.
 | `OCT-` + `GLO` | Init: the page you are on |
 | `OCT+` + `GLO` | Init: everything (the pattern you are in and its sound) |
 | `OCT-` + `HOME` | Random: everything, for melodies |
-| `OCT+` + `HOME` | Random: everything, for low and mid percussion |
+| `OCT+` + `HOME` | Random: everything, for electronic toms and low percussion |
+| `OCT+` + the last white key, or the one before it | Mute or unmute the kick, or the synth, on any page |
 | `OCT-` held, in SEQ and in the kick's sequence | K3 nudges both sequences together, K4 the page's own |
 
 `ENV` opens the settings: the audio outputs, MIDI (clock in and out, pulse sync out for gear with a sync input, channels), Bluetooth

@@ -9,7 +9,7 @@ import base64, html, os, subprocess, sys
 card_png, out_dir = sys.argv[1], sys.argv[2]
 os.makedirs(out_dir, exist_ok=True)
 
-VERSION = "0.2.8"
+VERSION = "0.2.9"
 DESCRIPTION = ("DFAM style 16-step sequencer and a drum synth for the FM-1. It has two oscillators with 16 wave "
                "types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects "
                "chain, random pages, scales, presets and projects. Bluetooth audio is experimental.")
@@ -98,8 +98,8 @@ SECTIONS = [
          "White keys 1-6 on the effect pages: compressor, delay, reverb, stutter, DJ filter, limiter on or off."),
         ("FX MIXER",
          "K1 delay mix, K2 reverb mix, K3 DJ filter cutoff, K4 stutter slice (1/8 to 1/128). White keys: 1 delay, 2 reverb, "
-         "3 DJ filter, 4 stutter, 5 compressor, 6 limiter; white key 16 turns off delay, reverb, DJ filter and "
-         "stutter together."),
+         "3 DJ filter, 4 stutter, 5 compressor, 6 limiter. The last black key turns delay, reverb, DJ filter and "
+         "stutter off together, and back on as they were."),
         ("Stutter key", "Tap to latch it. Hold 350 ms or more to stutter only while it is pressed."),
     ]),
     ("Random", [
@@ -120,8 +120,11 @@ SECTIONS = [
          "RANDOM ALL for melodies: a voice that holds a pitch (no noise, sync or cables), one of six scales with "
          "the quantizer on (the root stays), a phrase built from a four-step figure and a kick on every beat."),
         ("`OCT+` + `HOME`",
-         "RANDOM ALL for percussion, low and mid: steps and kick as RANDOM ALL, and a synth that is a drum (a pitch "
-         "that falls, no attack, a short decay)."),
+         "RANDOM ALL for electronic toms and low percussion: steps and kick as RANDOM ALL, and a synth that is a "
+         "tom (a sine or triangle at a low pitch that falls, no attack, a decay that rings)."),
+        ("`OCT+` + last white keys",
+         "On any page: the last white key mutes the kick, the one before it the synth; again, back on. A red S or "
+         "K in the header says which is muted."),
         ("`OCT-` + `GLO`",
          "INIT PAGE. SYNTH, kick sound and FX pages: the knobs go back to the first factory preset. Patch bay: every "
          "cable off. SEQ step pages: as in a new pattern, on every step, and no trigs. Kick line: empty. SCALE "

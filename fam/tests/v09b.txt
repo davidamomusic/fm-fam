@@ -334,15 +334,21 @@ tapkey w2
 tapkey w4
 wait 60
 expect fxen 63
+# (0.2.9) the last black key: the four off, the compressor and the limiter as they were; again: back as they were
+tapkey b10
+wait 60
+expect fxen 33
+tapkey b10
+wait 60
+expect fxen 63
+tapkey b10
+wait 60
+expect fxen 33
+# the last white key does nothing there now, and on another page of the FX the last black key does nothing
 tapkey w15
 wait 60
 expect fxen 33
-# the compressor and the limiter stay as they were; pressing it again changes nothing
-tapkey w15
-wait 60
-expect fxen 33
-# on another page of the FX the last key does nothing
 spin SELECT -1
-tapkey w15
+tapkey b10
 wait 60
 expect fxen 33

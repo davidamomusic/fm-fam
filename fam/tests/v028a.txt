@@ -126,7 +126,7 @@ wait 60
 release OCT+
 wait 100
 expect syn17 0
-expect syn18 <51
+expect syn18 >34
 # GLO alone still opens the patterns
 tap GLO
 expect mode 5

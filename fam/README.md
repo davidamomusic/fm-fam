@@ -90,7 +90,7 @@ encoder moves to the next part (`choice_step()` in `fam/app.c`), and the lock of
 of SEQ and of the KICK sequence start at the same x (`col_x0()`). Tested by `fam/tests/v021a.txt` (the choices) and by `fam/tests/v021b.txt` with
 `python3 fam/tests/align_check.py DIRECTORY` (the picture, at seven lengths).
 
-## How FM-FAM 0.2.8 is driven
+## How FM-FAM 0.2.9 is driven
 
 Buttons. `SEQ` the steps, `EDIT` the synth, `LFO` the patch bay, `ARP` the kick, `FX` the effects, `GLO` the patterns, `SEL` the scale,
 `REC` the RANDOM pages, `SAVE` the projects and presets, `ENV` the settings. A tap goes to the mode, a further tap to its next page.
@@ -115,8 +115,14 @@ Key pairs. Each acts at once, when the second button goes down; no hold does any
   choice, `AUTO` for a draw of its own).
 - The melody random: a voice that holds a pitch, the cables off, one of six scales with the quantizer on (the root stays), a phrase
   built from a four-step figure, and a kick on every beat; the kick's sound, the effects and the tempo stay.
-- The percussion random: the steps and the kick as the random of everything draws them, and a synth that is a drum between the mids
-  and the lows (a pitch that falls, no attack, a short decay, no hat sounds).
+- The percussion random: the steps and the kick as the random of everything draws them, and a synth that is an electronic tom or a
+  low electronic drum: a sine or a triangle (now and then a square or FM) at a low pitch that falls and takes its time, no attack,
+  a decay that rings a while, a low-pass, half the time a second oscillator for body, no hat sounds.
+- Mutes (0.2.9). With `OCT+` held, on any page, the last white key mutes the kick and the one before it the synth; the same keys
+  switch them back on. A red S or K in the header says which is muted. A muted voice takes no hit from its sequence nor from MIDI,
+  and sends no note. Nothing is kept: both sound again after a power-off.
+- The FX mixer's last black key (0.2.9) switches delay, reverb, DJ filter and stutter off together, and back on as they were
+  (`fx_four()`); the last white key does nothing there now.
 - The init of a page. A page of sound parameters (SYNTH, the kick's sound pages, the effects): its four knobs take the values of the
   first factory preset of their kind. The patch bay: every cable off. A step page of SEQ: what its knobs set goes back to a new
   pattern's on every step, and the line is left empty (page 1 pitch, velocity, gate, ratchet and every trig; page 2 condition, trig,
@@ -155,14 +161,14 @@ object that is in no backup, and survive a power-off (`btst_t`; it grew by eight
 loads as it is).
 
 Tests of these: `fam/tests/v022a.txt` (the clock in, the AUDIO page), `v024a.txt` (the random's caps, the RANDOM pages, the melody),
-`v026a.txt` (the reverb's width, the init of a page, percussion), `v027a.txt` (ENV's pages, the clock out, the pulses, the channels)
-and `v028a.txt` (the key pairs, the nudges).
+`v026a.txt` (the reverb's width, the init of a page, percussion), `v027a.txt` (ENV's pages, the clock out, the pulses, the channels),
+`v028a.txt` (the key pairs, the nudges) and `v029a.txt` (the mutes, the toms).
 
 Versions: 0.2.2 the clock in, 0.2.3 the AUDIO page and the stamped clock, 0.2.4 the RANDOM pages' labels, the melody random and the
 VERSION page, 0.2.5 and 0.2.6 the randoms' keys, the init of a page and the percussion random, 0.2.7 the clock out, the pulse sync,
-the notes out and the settings on `ENV`, 0.2.8 the six key pairs with no holds and NUDGE ALL.
+the notes out and the settings on `ENV`, 0.2.8 the six key pairs with no holds and NUDGE ALL, 0.2.9 the mutes, the mixer's black key and the percussion random as electronic toms.
 
-Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; a package is `fm-fam-0.2.8.fwsc` and its tag `v0.2.8`); the
+Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; a package is `fm-fam-0.2.9.fwsc` and its tag `v0.2.9`); the
 releases before it are 0.19 and 0.20.
 
 ## Identity and package

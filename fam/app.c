@@ -551,6 +551,7 @@ static struct {
     uint32_t kn;
     volatile uint32_t trigs;             /* synth notes started since boot (the host's checks) */
     volatile uint32_t ktrigs;
+    volatile uint8_t mute_k, mute_s;     /* OCT+ and the last, the last but one white key: the kick, the synth make no sound */
 } sq;
 
 /* MIDI sync (GLO page 6): with it on, the clock that comes in (USB, the MIDI jack, Bluetooth) plays the steps, a 16th
@@ -741,7 +742,7 @@ static float note_for(int pit)           /* a step's pitch into a MIDI note: spr
 static void kick_trigger(const pat_t *p, uint32_t s)
 {
     sq.kn = 0;
-    if (p->ktrig[s] && cond_pass(p->kcond[s], sq.kbar)) {
+    if (p->ktrig[s] && !sq.mute_k && cond_pass(p->kcond[s], sq.kbar)) {
         uint32_t hits = (uint32_t)(p->krat[s] & 3u) + 1u;
         sq.kpit = (float)p->kpit[s];
         sq.kgain = (float)p->kvol[s] * (1.0f / 127.0f);
@@ -760,7 +761,7 @@ static void step_trigger(uint32_t s)
 {
     pat_t *p = &pats[sq.cur];
     sq.rn = 0;
-    if (p->trig[s] && p->vel[s] && cond_pass(p->cond[s], sq.bar)) {
+    if (p->trig[s] && p->vel[s] && !sq.mute_s && cond_pass(p->cond[s], sq.bar)) {
         uint32_t hits = (uint32_t)(p->rat[s] & 3u) + 1u;
         float per = sq.dur / (float)hits, gate = 0.0f;
         int v = p->vel[s], h = sd.sc[SC_HUM] / 4;
@@ -1489,8 +1490,9 @@ static void midi_in(void)
             co.notes_in++;
         if (st == 0x90u && d2) {
             if (d1 == 36u) {
-                dsp_kick_trig((float)d2 * (1.0f / 127.0f), d2 > 110u);
-            } else {
+                if (!sq.mute_k)
+                    dsp_kick_trig((float)d2 * (1.0f / 127.0f), d2 > 110u);
+            } else if (!sq.mute_s) {
                 for (int k = 0; k < NSYN; k++)
                     syn_eff[k] = syn[k];
                 dsp_syn_trig((float)d1, (float)d2 * (1.0f / 127.0f), d2 > 110u, (float)d1 - 48.0f, 0.0f);
@@ -1821,6 +1823,7 @@ static struct {
     uint32_t held_step;                  /* the lowest step key held, 0xFF none */
     uint8_t turned;                      /* a knob turned while a key was held */
     uint8_t stut_mom;                    /* FX: the stutter was switched on by a key still down */
+    uint8_t fx_kept;                     /* FX mixer: the effects the last black key switched off (it switches them back on) */
     uint32_t stut_t, play_t, init_t;     /* init_t: when OCT+ and REC went down together (0 none) */
     uint8_t init_hint;                   /* HOLD TO INIT has been shown for this press */
 
@@ -2309,40 +2312,41 @@ static void random_run(int all)
     dirty_all();
 }
 
-/* OCT+ + HOME held 0.7 s: a random for percussion between the mids and the lows. The steps and the kick are drawn as the
- * general random draws them; the synth becomes a drum: a low or middle pitch that falls (a strong, short pitch envelope),
- * no attack, a short decay, a low-pass or band-pass that closes fast, now and then some noise, FM or a second oscillator
- * out of tune. No high "hat" sounds. The cables, the effects, the scale and the tempo stay. */
+/* OCT+ + HOME: a random for percussion between the mids and the lows. The steps and the kick are drawn as the
+ * general random draws them; the synth becomes an electronic tom or a low electronic drum: a sine or a triangle (now and
+ * then a square or FM) at a low pitch that falls and takes its time, no attack, a decay that rings a while, a low-pass,
+ * half the time a second oscillator for body, now and then a little noise at the hit. No high "hat" sounds. The cables, the effects, the scale and the tempo stay. */
 static void random_perc(void)
 {
-    static const uint8_t WV[8] = {4, 4, 0, 2, 7, 11, 12, 13};    /* SIN SIN TRI SQR FM FOLD DIGI METAL */
+    static const uint8_t WV[8] = {4, 4, 4, 4, 0, 0, 2, 7};       /* SIN (half the time) TRI SQR FM */
+    static const int8_t IV[6] = {0, 0, 7, 5, 12, -12};           /* the second oscillator: unison, a fifth, a fourth, an octave */
     uint8_t *y = sd.syn;
-    int n = 0;
+    int n = 0, body = (int)(rnd() % 10u) < 5;                    /* half the time a second oscillator gives it body */
     rnd_hat = 0;
     for (int rp = 0; rp < NRP; rp++)
         if (rnd_in_all(rp) && !(rp >= 2 && rp <= 7))
             n += rnd_page(rp);
-    y[P_V1FRQ] = (uint8_t)(64 + 2 * ((int)(rnd() % 21u) - 14));  /* 26..46 semitones: from a low tom to a middle one */
+    y[P_V1FRQ] = (uint8_t)(64 + 2 * ((int)(rnd() % 17u) - 16));  /* 24..40 semitones: a floor tom to a middle one */
     y[P_V1WAV] = (uint8_t)(WV[rnd() % 8u] * 8u + 4u);
-    y[P_V1LVL] = (uint8_t)(100 + rnd() % 28u);
-    y[P_V1EG] = (uint8_t)(45 + rnd() % 66u);
-    y[P_V2FRQ] = (uint8_t)clamp((int)y[P_V1FRQ] + 2 * ((int)(rnd() % 17u) - 7), 0, 127);
-    y[P_V2WAV] = (uint8_t)(WV[rnd() % 8u] * 8u + 4u);
-    y[P_V2LVL] = (uint8_t)(rnd() % 10u < 4u ? 0 : 30 + rnd() % 61u);
-    y[P_V2EG] = (uint8_t)(30 + rnd() % 71u);
-    y[P_FM] = (uint8_t)(rnd() % 10u < 5u ? 0 : 10 + rnd() % 61u);
-    y[P_SYN] = (uint8_t)(rnd() % 5u == 0 ? 127 : 0);
-    y[P_NSE] = (uint8_t)(rnd() % 10u < 5u ? 0 : 8 + rnd() % 38u);
-    y[P_VDEC] = (uint8_t)(15 + rnd() % 41u);
-    y[P_CUT] = (uint8_t)(45 + rnd() % 56u);
-    y[P_RES] = (uint8_t)(rnd() % 41u);
-    y[P_MODE] = (uint8_t)((rnd() % 5u == 0 ? 2u : rnd() & 1u) * 32u + 16u);      /* LP4, LP2, now and then BP */
-    y[P_FEG] = (uint8_t)(30 + rnd() % 71u);
-    y[P_FDEC] = (uint8_t)(15 + rnd() % 41u);
+    y[P_V1LVL] = (uint8_t)(105 + rnd() % 23u);
+    y[P_V1EG] = (uint8_t)(50 + rnd() % 46u);                     /* the pitch falls, as an electronic tom's does, */
+    y[P_VDEC] = (uint8_t)(30 + rnd() % 41u);                     /* and takes its time */
+    y[P_V2FRQ] = (uint8_t)clamp((int)y[P_V1FRQ] + 2 * IV[rnd() % 6u] + (rnd() % 3u == 0 ? 1 : 0), 0, 127);
+    y[P_V2WAV] = (uint8_t)(WV[rnd() % 6u] * 8u + 4u);            /* (a sine or a triangle) */
+    y[P_V2LVL] = (uint8_t)(body ? 30 + rnd() % 41u : 0);
+    y[P_V2EG] = (uint8_t)clamp((int)y[P_V1EG] + (int)(rnd() % 21u) - 10, 0, 127);
+    y[P_FM] = (uint8_t)(rnd() % 10u < 7u ? 0 : 10 + rnd() % 26u);
+    y[P_SYN] = 0;
+    y[P_NSE] = (uint8_t)(rnd() % 10u < 7u ? 0 : 5 + rnd() % 14u); /* now and then a little noise at the hit */
+    y[P_CUT] = (uint8_t)(55 + rnd() % 41u);
+    y[P_RES] = (uint8_t)(rnd() % 26u);
+    y[P_MODE] = (uint8_t)((rnd() & 1u) * 32u + 16u);             /* LP4 or LP2 */
+    y[P_FEG] = (uint8_t)(10 + rnd() % 41u);
+    y[P_FDEC] = (uint8_t)(25 + rnd() % 36u);
     y[P_ATK] = 0;
-    y[P_ADEC] = (uint8_t)(12 + rnd() % 39u);
+    y[P_ADEC] = (uint8_t)(35 + rnd() % 41u);                     /* it rings a while */
     y[P_VOL] = 100;
-    y[P_DRV] = (uint8_t)(rnd() % 51u);
+    y[P_DRV] = (uint8_t)(5 + rnd() % 36u);
     y[P_ACC] = (uint8_t)(70 + rnd() % 41u);
     y[P_GLD] = 0;
     y[P_TUN] = 64;
@@ -3405,20 +3409,25 @@ static void rand_knob(uint32_t kn, int32_t e)   /* RANDOM: how much of each knob
     ui.d_vis = ui.d_foot = 1;
 }
 
+static void fx_four(void)                /* the mixer's last black key: delay, reverb, DJ filter and stutter off together, and back as they were */
+{
+    const uint8_t four = FX_DLY | FX_REV | FX_DJF | FX_STU;
+    if (sd.fxen & four) {
+        ui.fx_kept = (uint8_t)(sd.fxen & four);
+        sd.fxen &= (uint8_t)~four;
+        ui.stut_mom = 0;
+        app_say("DLY REV DJF STU", "OFF");
+    } else {
+        sd.fxen |= ui.fx_kept ? ui.fx_kept : (uint8_t)(FX_DLY | FX_REV | FX_DJF);   /* (none remembered: the three that play on) */
+        app_say("DLY REV DJF STU", "BACK ON");
+    }
+    publish();
+    touch();
+    ui.d_vis = ui.d_foot = 1;
+}
 static void fx_key(uint32_t k, int down)        /* FX: the keys switch the effects; the stutter latches on a tap, plays on a hold */
 {
     const uint8_t *B = pg() == 6u ? FXB_MIX : FXB_PAGE, *I = pg() == 6u ? FXI_MIX : FXI_PAGE;
-    if (pg() == 6u && k == 15u) {        /* the mixer: the last white key switches delay, reverb, DJ filter and stutter off together */
-        if (down) {
-            sd.fxen &= (uint8_t)~(FX_DLY | FX_REV | FX_DJF | FX_STU);
-            ui.stut_mom = 0;
-            publish();
-            touch();
-            app_say("DLY REV DJF STU", "OFF");
-        }
-        ui.d_vis = ui.d_foot = 1;
-        return;
-    }
     if (k >= 6u)
         return;
     if (B[k] == FX_STU) {
@@ -3572,6 +3581,21 @@ static void input(void)
     for (k = 0; k < 16u; k++) {
         uint32_t bit = 1u << WK[k];
         int d = (keys & bit) != 0, was = (ui.keys & bit) != 0;
+        if (upb && k >= 14u) {           /* OCT+ held, any page: the last white key mutes the kick, the one before it the synth */
+            if (d && !was) {
+                if (k == 15u) {
+                    sq.mute_k = (uint8_t)!sq.mute_k;
+                    sq.kn = 0;
+                    app_say("KICK", sq.mute_k ? "MUTED" : "ON");
+                } else {
+                    sq.mute_s = (uint8_t)!sq.mute_s;
+                    sq.rn = 0;
+                    app_say("SYNTH", sq.mute_s ? "MUTED" : "ON");
+                }
+                ui.d_head = 1;
+            }
+            continue;
+        }
         if (ui.mode == M_FX) {
             if (d != was)
                 fx_key(k, d);
@@ -3613,6 +3637,8 @@ static void input(void)
             }
         }
     }
+    if (ui.mode == M_FX && pg() == 6u && (keys & (1u << BK[10])) && !(ui.keys & (1u << BK[10])))
+        fx_four();
     if (ui.mode == M_PATT) {             /* the black keys: the banks */
         for (k = 0; k < 11u; k++) {
             uint32_t bit = 1u << BK[k];
@@ -3686,8 +3712,12 @@ static void input(void)
                     lit_k |= 1u << WK[k];
                 else
                     dim_k |= 1u << WK[k];
-            if (pg() == 6u)              /* the last key: all four off */
-                dim_k |= 1u << WK[15];
+            if (pg() == 6u) {            /* the last black key: the four off (lit: they wait to come back) */
+                if (!(sd.fxen & (FX_DLY | FX_REV | FX_DJF | FX_STU)) && ui.fx_kept)
+                    lit_k |= 1u << BK[10];
+                else
+                    dim_k |= 1u << BK[10];
+            }
         } else if (ui.mode == M_RAND) {
             for (k = 0; k < 7u; k++)
                 if (k < 4u && ((sd.rnd_en[pg()] >> k) & 1u))
@@ -3871,6 +3901,10 @@ static void draw_head(void)
         for (i = 0; i < (int32_t)NPAGE[ui.mode]; i++, x += 8)
             cv_rect(x, 8, 5, 5, i == (int32_t)pg() ? mc : CL_DG);
     }
+    if (sq.mute_s)                       /* the mutes: the synth's and the kick's letters, in red */
+        cv_text(168, 6, &FONT_T, "S", CL_R);
+    if (sq.mute_k)
+        cv_text(176, 6, &FONT_T, "K", CL_R);
     if (sq.running) {                    /* the run mark */
         for (i = 0; i < 6; i++)
             cv_rect(152 + i * 2, 4 + i, 2, 12 - 2 * i, CL_G);
@@ -4689,7 +4723,7 @@ static void vis_fx(void)
             }
             centre_text(cx - 10, 54, 104, &FONT_T, t, on ? C_WHITE : CL_L);
         }
-        cv_text(6, 114, &FONT_T, "LAST KEY: DLY REV DJF STU OFF", CL_L);
+        cv_text(6, 114, &FONT_T, "LAST BLACK KEY: DLY REV DJF STU OFF / ON", CL_L);
     }
 }
 /* the envelopes: three exponential decays on one time axis */
@@ -5838,6 +5872,10 @@ int app_expect(const char *what, int *got)
         *got = bts.quality >> 4;
     else if (!strncmp(what, "ms", 2) && what[2])
         *got = midi_set[atoi(what + 2) & 7];
+    else if (!strcmp(what, "mute_k"))
+        *got = sq.mute_k;
+    else if (!strcmp(what, "mute_s"))
+        *got = sq.mute_s;
     else if (!strcmp(what, "notes_in"))
         *got = (int)co.notes_in;
     else if (!strcmp(what, "pulses"))
