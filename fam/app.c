@@ -552,7 +552,11 @@ static struct {
     volatile uint32_t trigs;             /* synth notes started since boot (the host's checks) */
     volatile uint32_t ktrigs;
     volatile uint8_t mute_k, mute_s;     /* OCT+ and the last, the last but one white key: the kick, the synth make no sound */
+    volatile uint8_t rec;                /* OCT- + SAVE in SEQ: the MIDI notes that come in are written into the steps */
+    volatile uint8_t rec_wrote;          /* a note was written (the main loop marks the pattern changed) */
+    uint8_t skip_s;                      /* a step a note was written into just before it plays (it has sounded): 1 + its index */
 } sq;
+static uint8_t rec_sel0, *rec_sel = &rec_sel0;   /* the selected step (ui.sel, once the UI is up): where a note goes when stopped */
 
 /* MIDI sync (GLO page 6): with it on, the clock that comes in (USB, the MIDI jack, Bluetooth) plays the steps, a 16th
  * every six clocks, and its start, continue and stop run the sequencer. Each clock has the time it landed on the FM-1
@@ -585,9 +589,11 @@ static struct {
 static volatile uint32_t loud_at;        /* xs.now when the output was last above a whisper (the autosave waits for silence) */
 
 static volatile uint8_t midi_set[8];     /* the MIDI pages' settings (kept in OBJ_BT, btst_t.set): */
-#define MS_INCH midi_set[0]              /* notes in: 0 every channel, 1..16 that one */
+#define MS_INCH midi_set[0]              /* notes in: 0 every channel, 1..16 that one, IN_OFF none */
+#define IN_OFF 17u                       /* (kept after the channels so a record of before still means what it did) */
 #define MS_OUTCH midi_set[1]             /* the synth's steps out as notes: 0 off, 1..16 the channel */
-#define MS_KICKCH midi_set[2]            /* the kick's steps out as note 36: 0 off, 1..16 the channel */
+#define KICK_NOTE 12u                    /* the kick's MIDI note, in and out: C0 (with C4 = 60) */
+#define MS_KICKCH midi_set[2]            /* the kick's steps out as KICK_NOTE: 0 off, 1..16 the channel */
 #define MS_CKOUT midi_set[3]             /* 1: the MIDI clock, start and stop go out */
 #define MS_PULSE midi_set[4]             /* the pulse sync on the jack: 0 off, 1..4 = 1, 2, 4, 24 pulses a quarter note */
 static const uint8_t PULSE_PPQN[5] = {0, 1, 2, 4, 24};
@@ -597,7 +603,7 @@ static const uint8_t PULSE_PPQN[5] = {0, 1, 2, 4, 24};
  * host the render sends them, a block at a time). Start goes out when the sequencer starts, stop when it stops. Following a
  * clock that comes in, the FM-1 sends none. The pulse sync: a 5 ms pulse on the left of the FM-1's own output (the tip of
  * the jack) every 24 / n clocks, the sound in mono on the right; app_line_out writes it, sample by sample. The notes: the
- * synth's steps on a channel, the kick's as note 36 on another. */
+ * synth's steps on a channel, the kick's as KICK_NOTE on another. */
 #define CO_LAT 256.0f                    /* a clock leaves this many samples after the render placed it: when its block sounds */
 #define CO_Q 16u
 #define PULSE_LEN 220                    /* samples: 5 ms */
@@ -641,7 +647,7 @@ static void mo_note(float note, float vel, float len)    /* a hit of the synth: 
     co.nleft = len;
     mo_send(0x90u | co.nch, (uint32_t)co.note, (uint32_t)(v < 1 ? 1 : v > 127 ? 127 : v));
 }
-static void mo_kick(float gain, int acc) /* a hit of the kick: note 36 out */
+static void mo_kick(float gain, int acc) /* a hit of the kick: KICK_NOTE out */
 {
     int v = (int)(gain * (acc ? 127.0f : 100.0f) + 0.5f);
     if (!MS_KICKCH || plat_midi_out_room(TO_USB | TO_BLE) < 4u)
@@ -649,9 +655,9 @@ static void mo_kick(float gain, int acc) /* a hit of the kick: note 36 out */
     if (co.knote >= 0)
         mo_send(0x80u | co.kch, (uint32_t)co.knote, 0);
     co.kch = (uint8_t)(MS_KICKCH - 1u);
-    co.knote = 36;
+    co.knote = (int8_t)KICK_NOTE;
     co.kleft = 2205.0f;                  /* 50 ms */
-    mo_send(0x90u | co.kch, 36u, (uint32_t)(v < 1 ? 1 : v > 127 ? 127 : v));
+    mo_send(0x90u | co.kch, KICK_NOTE, (uint32_t)(v < 1 ? 1 : v > 127 ? 127 : v));
 }
 static void clock_send(uint32_t now)     /* the clocks that are due leave (the tick; the render on the host) */
 {
@@ -761,6 +767,10 @@ static void step_trigger(uint32_t s)
 {
     pat_t *p = &pats[sq.cur];
     sq.rn = 0;
+    if (sq.skip_s && sq.skip_s - 1u == s) {      /* (a recorded note, already heard: once) */
+        sq.skip_s = 0;
+        return;
+    }
     if (p->trig[s] && p->vel[s] && !sq.mute_s && cond_pass(p->cond[s], sq.bar)) {
         uint32_t hits = (uint32_t)(p->rat[s] & 3u) + 1u;
         float per = sq.dur / (float)hits, gate = 0.0f;
@@ -1198,7 +1208,7 @@ static void bt_load(void)
             bts.set[i] = 0;
     for (uint32_t i = 0; i < sizeof bts.set; i++)
         midi_set[i] = bts.set[i];
-    if (MS_INCH > 16u)
+    if (MS_INCH > IN_OFF)
         MS_INCH = 0;
     if (MS_OUTCH > 16u)
         MS_OUTCH = 0;
@@ -1473,6 +1483,38 @@ static void sync_rt(uint32_t b, uint32_t t)      /* a real-time byte that landed
         seq_stop();
     }
 }
+/* A MIDI note recorded (in the render, as it comes in). The step gets a plain trig at a new pattern's velocity: how hard
+ * the note was played is not taken (it still sounds as played, live). Running: into the step it is nearest to, the one that plays or the
+ * next (that one then does not play it again this time round). Stopped: into the selected step, and the next is selected.
+ * The pitch is what makes the step sound the note played, given the transposition and the octave; the velocity is the
+ * new pattern's (100), with no accent. The step's condition and ratchet are cleared, its gate and locks stay. */
+static void rec_note(uint32_t note)
+{
+    pat_t *p = &pats[sq.cur];
+    uint32_t n = p->len, t;
+    int pit = (int)note - 48 - ((int)sd.sc[SC_TRANS] - 12) - ((int)sd.sc[SC_OCT] - 2) * 12;
+    if (!n)
+        return;
+    if (sq.running) {
+        int next;
+        if (xs.live)                     /* following a clock: past the middle of the step when 3 of its 6 clocks have come */
+            next = xs.ck >= 4u || xs.ck == 0u;
+        else
+            next = sq.left < XS_WAIT * 0.5f && sq.left < sq.dur * 0.5f;
+        t = ((uint32_t)sq.step + (next ? 1u : 0u)) % n;
+        if (next)
+            sq.skip_s = (uint8_t)(t + 1u);
+    } else {
+        t = *rec_sel < n ? *rec_sel : 0u;
+        *rec_sel = (uint8_t)((t + 1u) % n);
+    }
+    p->pit[t] = (int8_t)clamp(pit, -24, 24);
+    p->vel[t] = 100;
+    p->trig[t] = 1;
+    p->cond[t] = 0;
+    p->rat[t] = 0;
+    sq.rec_wrote = 1;
+}
 static void midi_in(void)
 {
     uint32_t pkt;
@@ -1484,18 +1526,22 @@ static void midi_in(void)
                 sync_rt((pkt >> 8) & 0xFFu, FM1B_MIDI_STAMP ? plat_midi_in_t24() : xs.now);
             continue;
         }
-        if (MS_INCH && st >= 0x80u && st <= 0xE0u && ((pkt >> 8) & 0x0Fu) != (uint32_t)MS_INCH - 1u)
+        if (MS_INCH && st >= 0x80u && st <= 0xE0u && (MS_INCH == IN_OFF || ((pkt >> 8) & 0x0Fu) != (uint32_t)MS_INCH - 1u))
             continue;                    /* (another channel) */
         if (st == 0x90u && d2)
             co.notes_in++;
         if (st == 0x90u && d2) {
-            if (d1 == 36u) {
+            if (d1 == KICK_NOTE) {
                 if (!sq.mute_k)
                     dsp_kick_trig((float)d2 * (1.0f / 127.0f), d2 > 110u);
-            } else if (!sq.mute_s) {
-                for (int k = 0; k < NSYN; k++)
-                    syn_eff[k] = syn[k];
-                dsp_syn_trig((float)d1, (float)d2 * (1.0f / 127.0f), d2 > 110u, (float)d1 - 48.0f, 0.0f);
+            } else {
+                if (sq.rec)
+                    rec_note(d1);
+                if (!sq.mute_s) {
+                    for (int k = 0; k < NSYN; k++)
+                        syn_eff[k] = syn[k];
+                    dsp_syn_trig((float)d1, (float)d2 * (1.0f / 127.0f), d2 > 110u, (float)d1 - 48.0f, 0.0f);
+                }
             }
         }
     }
@@ -2824,6 +2870,10 @@ static void pick_pattern(int pi)
 static void go_mode(uint32_t m)
 {
     lib_commit();
+    if (sq.rec && m != M_SEQ) {          /* the recording is SEQ's: leaving SEQ ends it */
+        sq.rec = 0;
+        app_say("MIDI REC", "OFF");
+    }
     ui.mode = (uint8_t)m;
     ui.nudge = ui.nudge_all = 0;
     if (m == M_HOME)
@@ -2930,7 +2980,19 @@ static void on_button(uint32_t b)
     case B_PLAY:
         ui.play_t = plat_ms();
         break;
-    case B_SAVE: mode_key(M_HOME, 0xFFu); break; /* SAVE opens HOME: the projects and presets (the autosave keeps the rest) */
+    case B_SAVE:                                 /* SAVE opens HOME: the projects and presets (the autosave keeps the rest); */
+        if ((plat_buttons() >> B_OCTDN) & 1u) {  /* with OCT- held, in SEQ: the MIDI recording on or off */
+            if (ui.mode == M_SEQ) {
+                sq.rec = (uint8_t)!sq.rec;
+                app_say("MIDI REC", sq.rec ? "ON" : "OFF");
+                ui.d_head = 1;
+            } else {
+                app_say("MIDI REC", "IN SEQ ONLY");
+            }
+        } else {
+            mode_key(M_HOME, 0xFFu);
+        }
+        break;
     default:
         break;
     }
@@ -3448,8 +3510,14 @@ static void midi_knob(uint32_t kn, int32_t e)   /* MIDI page 1: K1 the clock in,
 }
 static void midi2_knob(uint32_t kn, int32_t e)  /* MIDI page 2: the channels, a click a channel */
 {
-    if (kn < 3u) {
-        volatile uint8_t *p = kn == 0u ? &MS_INCH : kn == 1u ? &MS_OUTCH : &MS_KICKCH;
+    if (kn == 0u) {                      /* IN: OFF, ALL, 1..16, in that order on the knob */
+        int32_t pos = MS_INCH == IN_OFF ? 0 : (int32_t)MS_INCH + 1, np = clamp(pos + e, 0, 17);
+        if (np != pos) {
+            MS_INCH = (uint8_t)(np == 0 ? IN_OFF : np - 1);
+            ms_keep();
+        }
+    } else if (kn < 3u) {
+        volatile uint8_t *p = kn == 1u ? &MS_OUTCH : &MS_KICKCH;
         uint8_t v = (uint8_t)clamp((int32_t)*p + e, 0, 16);
         if (v != *p) {
             if (kn)
@@ -3822,6 +3890,8 @@ static void input(void)
                          ui.mode == M_PATT ? B_GLO : ui.mode == M_RAND ? B_REC : ui.mode == M_SCALE ? B_SEL :
                          ui.mode == M_SET ? B_ENV : B_SAVE);
         pat_t *p = cur_pat();
+        if (sq.rec)                      /* recording: SAVE lit too */
+            lit_b |= 1u << B_SAVE;
         if (ui.mode == M_FX) {
             const uint8_t *B = pg() == 6u ? FXB_MIX : FXB_PAGE;
             for (k = 0; k < 6u; k++)
@@ -4018,6 +4088,8 @@ static void draw_head(void)
         for (i = 0; i < (int32_t)NPAGE[ui.mode]; i++, x += 8)
             cv_rect(x, 8, 5, 5, i == (int32_t)pg() ? mc : CL_DG);
     }
+    if (sq.rec)                          /* recording: a red dot */
+        cv_rect(138, 6, 8, 8, CL_R);
     if (sq.mute_s)                       /* the mutes: the synth's and the kick's letters, in red */
         cv_text(168, 6, &FONT_T, "S", CL_R);
     if (sq.mute_k)
@@ -4262,11 +4334,13 @@ static void foot_cells(fcell_t *c)
             cell_set(&c[3], "-", "", -1, 0);
             c[3].dim = 1;
         } else if (pg() == SP_MIDI2) {
-            if (MS_INCH)
+            if (MS_INCH == IN_OFF)
+                scopy(t, "OFF", 16);
+            else if (MS_INCH)
                 int_text(MS_INCH, t);
             else
                 scopy(t, "ALL", 16);
-            cell_set(&c[0], "IN CH", t, MS_INCH * 127 / 16, 0);
+            cell_set(&c[0], "IN CH", t, MS_INCH == IN_OFF ? 0 : ((int32_t)MS_INCH + 1) * 127 / 17, 0);
             if (MS_OUTCH)
                 int_text(MS_OUTCH, t);
             else
@@ -5233,15 +5307,17 @@ static void vis_midi2(void)              /* MIDI page 2: the channels */
     char t[44], n[12];
     int32_t x;
     x = cv_text(6, 2, &FONT_M, "IN ", CL_W);
-    if (MS_INCH) {
+    if (MS_INCH == IN_OFF) {
+        scopy(t, "OFF", 44);
+    } else if (MS_INCH) {
         int_text(MS_INCH, n);
         scopy(t, "CHANNEL ", 44);
         text_cat(t, n);
     } else {
         scopy(t, "ALL CHANNELS", 44);
     }
-    cv_text(x, 2, &FONT_M, t, CL_G);
-    cv_text(6, 26, &FONT_T, "NOTES PLAY THE SYNTH; NOTE 36 (C1), THE KICK", CL_L);
+    cv_text(x, 2, &FONT_M, t, MS_INCH == IN_OFF ? CL_L : CL_G);
+    cv_text(6, 26, &FONT_T, MS_INCH == IN_OFF ? "NO NOTE COMES IN (THE CLOCK STILL DOES)" : "NOTES PLAY THE SYNTH; NOTE 12 (C0), THE KICK", CL_L);
     x = cv_text(6, 42, &FONT_M, "OUT ", CL_W);
     if (MS_OUTCH) {
         int_text(MS_OUTCH, n);
@@ -5261,7 +5337,7 @@ static void vis_midi2(void)              /* MIDI page 2: the channels */
         scopy(t, "OFF", 44);
     }
     cv_text(x, 82, &FONT_M, t, MS_KICKCH ? CL_O : CL_L);
-    cv_text(6, 106, &FONT_T, "THE KICK'S STEPS AS NOTE 36. USB AND BLUETOOTH", CL_L);
+    cv_text(6, 106, &FONT_T, "THE KICK'S STEPS AS NOTE 12. USB AND BLUETOOTH", CL_L);
 }
 static void vis_version(void)            /* VERSION: the firmware and what the audio costs */
 {
@@ -5613,6 +5689,7 @@ static void draw_vis(void)
 void app_ui_init(void)
 {
     uint32_t i;
+    rec_sel = &ui.sel;                   /* (the MIDI recording, stopped, writes at the selected step) */
     for (i = 0; i < 25u; i++) {
         float a = (135.0f + 270.0f * (float)i / 24.0f) * 3.14159265f / 180.0f;
         kc[i] = (int16_t)(fm_cosf(a) * 256.0f);
@@ -5642,6 +5719,11 @@ void app_frame(void)
     if (bts_dirty && !bk_hold && !sq.running && now - bts_t >= 1500u && (quiet || now - bts_t >= 15000u))    /* what Bluetooth keeps, or its switch */
         bt_store();
     bt_poll();
+    if (sq.rec_wrote) {                  /* notes were recorded: the pattern is changed (autosave), the steps redrawn */
+        sq.rec_wrote = 0;
+        touch();
+        ui.d_vis = ui.d_foot = ui.d_strip = 1;
+    }
     {
         static uint32_t xlast;
         uint32_t x = (uint32_t)xs.live << 16 | xs.bpm;
@@ -5989,6 +6071,10 @@ int app_expect(const char *what, int *got)
         *got = bts.quality >> 4;
     else if (!strncmp(what, "ms", 2) && what[2])
         *got = midi_set[atoi(what + 2) & 7];
+    else if (!strcmp(what, "rec"))
+        *got = sq.rec;
+    else if (!strcmp(what, "sel"))
+        *got = ui.sel;
     else if (!strcmp(what, "mute_k"))
         *got = sq.mute_k;
     else if (!strcmp(what, "mute_s"))

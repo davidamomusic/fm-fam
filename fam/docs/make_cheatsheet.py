@@ -9,7 +9,7 @@ import base64, html, os, subprocess, sys
 card_png, out_dir = sys.argv[1], sys.argv[2]
 os.makedirs(out_dir, exist_ok=True)
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 DESCRIPTION = ("DFAM style 16-step sequencer and a drum synth for the FM-1. It has two oscillators with 16 wave "
                "types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects "
                "chain, random pages, scales, presets and projects. Bluetooth audio is experimental.")
@@ -50,7 +50,7 @@ SECTIONS = [
         ("`STEP KEY` hold + `REC`",
          "Clear the step (SEQ or kick sequence). A kick step also goes back to pitch 0 and volume 100%."),
         ("MIDI note in",
-         "By USB, or by Bluetooth with the BLUETOOTH page on. A note plays the synth; note 36 triggers the kick as it "
+         "By USB, or by Bluetooth with the BLUETOOTH page on. A note plays the synth; note 12 (C0) triggers the kick as it "
          "is, without step pitch or volume."),
     ]),
     ("Sequencer", [
@@ -122,6 +122,9 @@ SECTIONS = [
         ("`OCT+` + `HOME`",
          "RANDOM ALL for electronic toms and low percussion: steps and kick as RANDOM ALL, and a synth that is a "
          "tom (a sine or triangle at a low pitch that falls, no attack, a decay that rings)."),
+        ("`OCT-` + `SAVE` (in SEQ)",
+         "MIDI REC on or off (red dot). MIDI notes go into the steps as plain trigs: running, the nearest step; "
+         "stopped, the selected one, then the next. Note 12 (C0, kick) is not recorded."),
         ("`OCT-` + `SEQ`",
          "RANDOM ALL, softer: the second half of the steps answers the first, and the FX are drawn low (reverb "
          "width under 12, small mixes, stutter off)."),
@@ -182,8 +185,8 @@ SECTIONS = [
          "the sequencer (header: EXT). K2 CLOCK OUT: clock, start, stop to USB and Bluetooth. K3 PULSE OUT, for "
          "gear with a sync input: 1, 2, 4 or 24 a quarter note; on the jack, pulses left (tip), sound right (ring)."),
         ("Page 3 MIDI: channels",
-         "K1 IN: ALL or 1-16 (note 36 is the kick). K2 OUT: OFF or 1-16, the synth's steps as notes. K3 KICK: OFF or "
-         "1-16, its steps as note 36. Out to USB and Bluetooth."),
+         "K1 IN: OFF, ALL or 1-16 (note 12, C0, is the kick). K2 OUT: OFF or 1-16, the synth's steps as notes. K3 KICK: OFF or "
+         "1-16, its steps as note 12. Out to USB and Bluetooth."),
         ("Pages 4 and 5", "BLUETOOTH (below) and VERSION: the firmware's version (" + VERSION + ") and the CPU load. "
          "The MIDI jack is an input only and there is no pulse input: the FM-1 follows MIDI clock, not pulses."),
     ]),

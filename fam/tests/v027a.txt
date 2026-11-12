@@ -74,8 +74,8 @@ wait 60
 midi 82 3C 00
 wait 60
 expect notes_in 1
-# back to every channel
-spin K1 -9
+# back to every channel (since 0.3.1 OFF is one click further left)
+spin K1 -3
 expect ms0 0
 midi 90 3C 64
 wait 60
