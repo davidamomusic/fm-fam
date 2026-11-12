@@ -173,7 +173,7 @@ static const struct { const char *n; uint8_t v[NKICK]; } KPRE[] = {
 #define NKPRE ((int)(sizeof KPRE / sizeof KPRE[0]))
 /*                    CMP: thr mix spd gain | STU: size mix dec spd | DLY: time fb mix tone | REV: size tone mix width | DJF: cut res mix slope | LIM: ceil drive out soft */
 static const struct { const char *n; uint8_t v[NFX]; uint8_t en; } FPRE[] = {
-    {"DEFAULT", {40, 80, 40, 20, 40, 100, 0, 64, 40, 50, 30, 80, 80, 60, 25, 127, 0, 30, 127, 0, 110, 0, 100, 127}, FX_DLY | FX_REV | FX_LIM},
+    {"DEFAULT", {40, 80, 40, 20, 40, 100, 0, 64, 40, 50, 30, 80, 80, 60, 25, 10, 0, 30, 127, 0, 110, 0, 100, 127}, FX_DLY | FX_REV | FX_LIM},
     {"DRY", {40, 80, 40, 20, 40, 100, 0, 64, 40, 50, 0, 80, 80, 60, 0, 127, 0, 30, 127, 0, 110, 0, 100, 127}, FX_LIM},
     {"DUB ECHO", {40, 80, 40, 20, 40, 100, 0, 64, 80, 100, 80, 40, 100, 50, 20, 127, 0, 30, 127, 0, 110, 0, 100, 127}, FX_DLY | FX_REV | FX_LIM},
     {"HALL", {40, 80, 40, 20, 40, 100, 0, 64, 40, 50, 0, 80, 120, 40, 70, 127, 0, 30, 127, 0, 110, 0, 100, 127}, FX_REV | FX_LIM},
@@ -2128,16 +2128,9 @@ static void rnd_kick_steps(pat_t *p, int amt)      /* the kick: always on step 1
             p->ktrig[i] = (uint8_t)(i == 0 ? 2 : on ? (rnd() % 4u == 0 ? 2 : 1) : 0);
     }
 }
-static void pat_random(pat_t *p)         /* RAND in PATTERNS: new steps and a new kick line, drawn as the random pages do */
-{
-    int ext = rnd() % 10u < 3u;
-    for (uint32_t i = 0; i < p->len; i++)
-        p->pit[i] = (int8_t)(i == 0 ? 0 : rnd_pitch(ext));
-    rnd_rests(p, 127, 1);
-    for (int i = 0; i < NSTEP; i++)
-        p->lk_p[i][0] = p->lk_p[i][1] = p->lk_v[i][0] = p->lk_v[i][1] = 0;
-    rnd_kick_steps(p, 127);
-}
+enum { RF_PATT, RF_EUCLID, RF_SOFT };   /* the randoms of everything with steps of their own (random_flavour, below) */
+static void pat_flavour(pat_t *p, int kind);
+static void random_flavour(int kind);
 static void rnd_cables(int amt)          /* two to four new cables, from any source into any input, a depth of 20..80 % (seven in ten positive) */
 {
     uint32_t n = 2u + rnd() % 3u;
@@ -2291,8 +2284,12 @@ static void random_run(int all)
     } else {
         int rp = ui.mode == M_RAND ? (int)pg() : rp_of(ui.mode, pg());
         if (rp < 0) {
-            if (ui.mode == M_PATT) {
-                pat_random(&pats[edit_pi()]);
+            if (ui.mode == M_PATT) {     /* the pattern that plays: its steps and its sound; another one: its steps */
+                if (edit_pi() == (int)sq.cur) {
+                    random_flavour(RF_PATT);
+                    return;
+                }
+                pat_flavour(&pats[edit_pi()], RF_PATT);
                 n = 1;
             }
             publish();
@@ -2308,6 +2305,115 @@ static void random_run(int all)
             app_say("RANDOM", n ? rp_title(rp) : "ALL OFF");
         }
     }
+    touch();
+    dirty_all();
+}
+
+/* Three more randoms of everything, each with steps of its own on top of what the random pages draw.
+ *   RF_PATT, RAND in PATTERNS on the pattern that plays (and OCT- + REC there): the sound as OCT+ + REC draws it; the steps
+ *     keep the beat (every fourth step plays, the others rest one time in three), pitches over the wider range half the time.
+ *   RF_EUCLID, OCT+ + SEQ: the sound as OCT+ + REC draws it; the trigs are a number of hits spread evenly over the length
+ *     and turned by a few steps, the pitches a four-step figure said again with a note changed each time, and the kick's
+ *     line is spread the same way.
+ *   RF_SOFT, OCT- + SEQ: the sound with the resonance at 50 and the kick's level at 100 or under; the second half of the
+ *     steps answers the first (the same, its last notes changed); and the effects are drawn too, but low: the reverb's
+ *     width under 12, the mixes, the feedback and the drive small, the DJ filter open and the stutter off. */
+static void rf_spread(uint8_t *t, uint32_t n, uint32_t hits, uint32_t turn)      /* hits spread evenly over n steps, turned */
+{
+    for (uint32_t i = 0; i < n; i++)
+        t[(i + turn) % n] = (uint8_t)(((i * hits) % n) < hits);
+}
+static void pat_flavour(pat_t *p, int kind)      /* the steps and the kick's line of a flavour, in any pattern */
+{
+    uint32_t i, n = p->len, kn = p->klen;
+    uint8_t on[NSTEP];
+    int ext = rnd() % 10u < (kind == RF_PATT ? 5u : 3u), fig[4];
+    for (i = 0; i < NSTEP; i++)
+        p->lk_p[i][0] = p->lk_p[i][1] = p->lk_v[i][0] = p->lk_v[i][1] = 0;
+    if (kind == RF_PATT) {
+        for (i = 0; i < n; i++) {
+            p->pit[i] = (int8_t)(i == 0 ? 0 : rnd_pitch(ext));
+            p->trig[i] = (uint8_t)((i & 3u) == 0 ? (i == 0 || rnd() % 3u == 0 ? 2 : 1) : rnd() % 3u ? 1 : 0);
+            p->vel[i] = (uint8_t)((i & 3u) == 0 ? 100 + rnd() % 28u : 70 + rnd() % 45u);
+        }
+        rnd_kick_steps(p, 127);
+    } else if (kind == RF_EUCLID) {
+        uint32_t hits = n / 2u + rnd() % (n / 3u + 1u);
+        rf_spread(on, n, hits > n ? n : hits, rnd() % n);
+        for (i = 0; i < 4u; i++)
+            fig[i] = i == 0 ? 0 : rnd_pitch(ext);
+        for (i = 0; i < n; i++) {
+            int v = fig[i & 3u];
+            if (i >= 4u && (i & 3u) == (i / 4u) % 4u)
+                v = rnd_pitch(ext);      /* said again, a note changed each time */
+            p->pit[i] = (int8_t)(i == 0 ? 0 : v);
+            p->trig[i] = (uint8_t)(i == 0 ? 2 : on[i] ? ((i & 3u) == 0 && rnd() % 2u ? 2 : 1) : 0);
+            p->vel[i] = (uint8_t)(75 + rnd() % 50u);
+        }
+        rf_spread(on, kn, 3u + rnd() % 4u, 0);
+        for (i = 0; i < kn; i++)
+            p->ktrig[i] = (uint8_t)(i == 0 ? 2 : on[i] ? (rnd() % 4u == 0 ? 2 : 1) : 0);
+    } else {
+        uint32_t half = n / 2u ? n / 2u : 1u;
+        for (i = 0; i < half; i++) {
+            p->pit[i] = (int8_t)(i == 0 ? 0 : rnd_pitch(ext));
+            p->trig[i] = (uint8_t)(i == 0 ? 2 : rnd() % 4u ? 1 : 0);
+            p->vel[i] = (uint8_t)(70 + rnd() % 50u);
+        }
+        for (i = half; i < n; i++) {     /* the answer: the first half again, its last notes its own */
+            uint32_t j = i - half;
+            p->pit[i] = p->pit[j % half];
+            p->trig[i] = p->trig[j % half] ? 1 : 0;
+            p->vel[i] = p->vel[j % half];
+            if (i + 2u >= n) {
+                p->pit[i] = (int8_t)rnd_pitch(ext);
+                p->trig[i] = (uint8_t)(rnd() % 3u ? 1 : 0);
+            }
+        }
+        rnd_kick_steps(p, 127);
+    }
+}
+static void random_flavour(int kind)
+{
+    static const char *const NAME[3] = {"PATTERN", "SPREAD", "SOFT + FX"};
+    pat_t *p = cur_pat();
+    int n = 0, wide = kind != RF_SOFT;
+    uint32_t lf;
+    rnd_hat = (int)(rnd() % 100u) < 15;
+    rnd_wide = wide;
+    for (int rp = 0; rp < NRP; rp++)
+        if (rnd_in_all(rp))
+            n += rnd_page(rp);
+    rnd_wide = 0;
+    if (!wide) {
+        if (sd.syn[P_RES] > 50u)
+            sd.syn[P_RES] = 50;
+        if (kick_p[K_LVL] > 100u)
+            kick_p[K_LVL] = 100;
+    }
+    lf = plat_lock();
+    pat_flavour(p, kind);
+    plat_unlock(lf);
+    if (kind == RF_SOFT) {               /* the effects, drawn low */
+        uint8_t *x = sd.fx;
+        for (int rp = 13; rp <= 19; rp++)
+            (void)rnd_page(rp);
+        x[F_RVW] = (uint8_t)(rnd() % 12u);
+        x[F_RVM] = (uint8_t)(8 + rnd() % 23u);
+        x[F_DLM] = (uint8_t)(5 + rnd() % 21u);
+        if (x[F_DLF] > 45u)
+            x[F_DLF] = (uint8_t)(15 + rnd() % 31u);
+        if (x[F_LMD] > 20u)
+            x[F_LMD] = (uint8_t)(rnd() % 21u);
+        x[F_DJC] = 0;                    /* (the DJ filter open) */
+        if (x[F_DJR] > 30u)
+            x[F_DJR] = (uint8_t)(rnd() % 31u);
+        sd.fxen &= (uint8_t)~FX_STU;
+        ui.stut_mom = 0;
+    }
+    publish();
+    app_say("RANDOM", NAME[kind]);
+    (void)n;
     touch();
     dirty_all();
 }
@@ -2685,9 +2791,13 @@ static void pick_pattern(int pi)
             app_say("CLEAR", n);
         } else if (ui.cmd == 4) {
             pat_clear(&pats[pi]);
-            pat_random(&pats[pi]);
-            touch();
-            app_say("RAND", n);
+            if (pi == (int)sq.cur) {     /* the pattern that plays: its steps and its sound, as OCT+ + REC but with steps of its own */
+                random_flavour(RF_PATT);
+            } else {                     /* another one: its steps (its sound is not the live one) */
+                pat_flavour(&pats[pi], RF_PATT);
+                touch();
+                app_say("RAND", n);
+            }
         }
         ui.d_vis = ui.d_foot = ui.d_strip = 1;
         return;
@@ -2785,7 +2895,14 @@ static void mode_key(uint32_t m, uint32_t first)    /* first: the page a key ope
 static void on_button(uint32_t b)
 {
     switch (b) {
-    case B_SEQ: mode_key(M_SEQ, 0xFFu); break;
+    case B_SEQ:                                  /* OCT- held: the soft random, with the effects low; OCT+: the spread one */
+        if ((plat_buttons() >> B_OCTDN) & 1u)
+            random_flavour(RF_SOFT);
+        else if ((plat_buttons() >> B_OCTUP) & 1u)
+            random_flavour(RF_EUCLID);
+        else
+            mode_key(M_SEQ, 0xFFu);
+        break;
     case B_EDIT: mode_key(M_SYN, 0xFFu); break;
     case B_ENV: mode_key(M_SET, 0xFFu); break;   /* the settings: audio, MIDI, Bluetooth, version */
     case B_LFO: mode_key(M_PATCH, 0xFFu); break;

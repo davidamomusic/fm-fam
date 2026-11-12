@@ -29,6 +29,8 @@ Each acts at once, when the second button goes down.
 | `OCT+` + `GLO` | Init: everything (the pattern you are in and its sound) |
 | `OCT-` + `HOME` | Random: everything, for melodies |
 | `OCT+` + `HOME` | Random: everything, for electronic toms and low percussion |
+| `OCT-` + `SEQ` | Random: everything, softer, with the effects drawn low |
+| `OCT+` + `SEQ` | Random: everything, with hits spread evenly over the steps |
 | `OCT+` + the last white key, or the one before it | Mute or unmute the kick, or the synth, on any page |
 | `OCT-` held, in SEQ and in the kick's sequence | K3 nudges both sequences together, K4 the page's own |
 

@@ -5,7 +5,7 @@
 #include "plat.h"
 
 #define APP_NAME "FM-FAM"
-#define APP_VERSION "0.2.9"
+#define APP_VERSION "0.3.0"
 #define APP_SPLASH_RGB RGB(255, 140, 30)
 #define APP_BLOCK 256u                   /* frames per audio block: 5.8 ms at 44.1 kHz (the step clock is per sample) */
 

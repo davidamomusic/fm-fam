@@ -1,0 +1,84 @@
+# FM-FAM v0.3.0: the reverb's width at first power-on, the randoms of OCT- + SEQ and OCT+ + SEQ, and RAND in PATTERNS
+#   fam/build/host/fm-fam_host fam/tests/v030a.txt DIRECTORY
+wait 3000
+# first power-on: the reverb's width is 10
+expect fx15 10
+# SEQ alone opens the steps
+tap EDIT
+tap SEQ
+expect mode 0
+# OCT- + SEQ, four times, from another mode: the mode stays; the effects low, the resonance and the kick's level capped
+tap EDIT
+press OCT-
+wait 60
+tap SEQ
+wait 100
+expect mode 1
+expect fx15 <12
+expect fx14 <31
+expect fx10 <26
+expect fx9 <46
+expect fx16 0
+expect syn13 <51
+expect kick6 <101
+expect trig0 2
+tap SEQ
+wait 100
+expect fx15 <12
+expect fx14 <31
+expect fx10 <26
+expect syn13 <51
+tap SEQ
+wait 100
+expect fx15 <12
+expect fx14 <31
+expect kick6 <101
+tap SEQ
+wait 100
+expect fx15 <12
+expect fx10 <26
+release OCT-
+wait 100
+shot soft.png
+# OCT+ + SEQ, three times: the sound as OCT+ + REC draws it (the kick's level 100..110), the effects left alone
+press OCT+
+wait 60
+tap SEQ
+wait 100
+expect mode 1
+expect kick6 >99
+expect kick6 <111
+expect syn13 <86
+expect trig0 2
+expect ktrig0 2
+expect fx15 <12
+tap SEQ
+wait 100
+expect kick6 >99
+expect trig0 2
+tap SEQ
+wait 100
+expect kick6 >99
+expect ktrig0 2
+release OCT+
+wait 100
+tap SEQ
+wait 80
+shot spread.png
+# RAND in PATTERNS on the pattern that plays: its steps and its sound (K2 to RAND, then the pattern's key)
+tap GLO
+spin SELECT -9
+wait 80
+expect mode 5
+expect page 0
+spin K2 4
+wait 80
+tapkey w1
+wait 100
+expect kick6 >99
+expect kick6 <111
+expect trig0 2
+expect trig4 >0
+tap SEQ
+wait 80
+shot patt.png

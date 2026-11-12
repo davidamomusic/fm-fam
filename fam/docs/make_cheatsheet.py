@@ -9,7 +9,7 @@ import base64, html, os, subprocess, sys
 card_png, out_dir = sys.argv[1], sys.argv[2]
 os.makedirs(out_dir, exist_ok=True)
 
-VERSION = "0.2.9"
+VERSION = "0.3.0"
 DESCRIPTION = ("DFAM style 16-step sequencer and a drum synth for the FM-1. It has two oscillators with 16 wave "
                "types, a kick with its own sequencer, parameter locks, a sound saved per pattern, an effects "
                "chain, random pages, scales, presets and projects. Bluetooth audio is experimental.")
@@ -122,6 +122,12 @@ SECTIONS = [
         ("`OCT+` + `HOME`",
          "RANDOM ALL for electronic toms and low percussion: steps and kick as RANDOM ALL, and a synth that is a "
          "tom (a sine or triangle at a low pitch that falls, no attack, a decay that rings)."),
+        ("`OCT-` + `SEQ`",
+         "RANDOM ALL, softer: the second half of the steps answers the first, and the FX are drawn low (reverb "
+         "width under 12, small mixes, stutter off)."),
+        ("`OCT+` + `SEQ`",
+         "RANDOM ALL with the hits spread evenly over the steps, a four-step figure of pitches and a kick line "
+         "spread the same way."),
         ("`OCT+` + last white keys",
          "On any page: the last white key mutes the kick, the one before it the synth; again, back on. A red S or "
          "K in the header says which is muted."),
