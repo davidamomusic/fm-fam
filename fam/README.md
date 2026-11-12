@@ -103,7 +103,7 @@ To make it again after a change, with Emscripten installed: `python3 tools/build
 committed player was built that way (clang 18, wasi-libc `wasi-sdk-22`). **The player must be rebuilt for every version**; it is tested
 by `node fam/tests/play_browser_test.mjs` (headless Chromium: the page loads, switches on and draws the screen).
 
-## How FM-FAM 0.3.1 is driven
+## How FM-FAM 0.3.0 is driven
 
 Buttons. `SEQ` the steps, `EDIT` the synth, `LFO` the patch bay, `ARP` the kick, `FX` the effects, `GLO` the patterns, `SEL` the scale,
 `REC` the RANDOM pages, `SAVE` the projects and presets, `ENV` the settings. A tap goes to the mode, a further tap to its next page.
@@ -122,7 +122,6 @@ Key pairs. Each acts at once, when the second button goes down; no hold does any
 | `OCT+` + `HOME` | a random of everything, for low and mid percussion (`random_perc()`) |
 | `OCT-` + `SEQ` | a random of everything, softer, with the effects low (`random_flavour(RF_SOFT)`) |
 | `OCT+` + `SEQ` | a random of everything, its hits spread evenly (`random_flavour(RF_EUCLID)`) |
-| `OCT-` + `SAVE` | in SEQ, the MIDI recording on or off (`rec_note()`) |
 
 - The random of everything draws the steps, the synth and the kick, and leaves the cables, the effects, the scale and the tempo. It
   draws the resonance up to 85 and the kick's level from 100 to 110, as 0.2.3 did; key 7 of a RANDOM page is the same random with the
@@ -141,13 +140,6 @@ Key pairs. Each acts at once, when the second button goes down; no hold does any
   answers the first; and the effects are drawn too, but low (the reverb's width under 12, the mixes, the feedback and the drive
   small, the DJ filter open, the stutter off). RAND in PATTERNS, on the pattern that plays: the sound as `OCT+` + `REC` draws it,
   and steps that keep the beat (every fourth step plays, the others rest one time in three); on another pattern, its steps only.
-- MIDI recording (0.3.1). `OCT-` + `SAVE` in SEQ switches it on (a red dot in the header, `SAVE` lit) and off; leaving SEQ
-  switches it off. The notes that come in by MIDI (USB, the MIDI jack, Bluetooth; on the channel of `IN CH`) are written into the
-  synth's steps as they play: running, into the step each is nearest to (the one that plays, or the next, which then does not
-  play it a second time); stopped, into the selected step, and the next is selected. A step gets the pitch that makes it sound
-  the note played (given the transposition and the octave; quantized by the scale if the quantizer is on), the note's velocity
-  (over 110, an accent), no condition and no ratchet; its gate and locks stay. Note 36 is the kick's and is not recorded, and the
-  kick's line is not recorded into. The pitch range is two octaves each way from C3 (MIDI 48): notes beyond are written at the edge.
 - First power-on (0.3.0): the reverb's width is 10 (the first FX preset, DEFAULT, which the inits use too). What a unit has saved
   is not touched: the autosave is what it starts with from then on.
 - Mutes (0.2.9). With `OCT+` held, on any page, the last white key mutes the kick and the one before it the synth; the same keys
@@ -194,13 +186,13 @@ loads as it is).
 
 Tests of these: `fam/tests/v022a.txt` (the clock in, the AUDIO page), `v024a.txt` (the random's caps, the RANDOM pages, the melody),
 `v026a.txt` (the reverb's width, the init of a page, percussion), `v027a.txt` (ENV's pages, the clock out, the pulses, the channels),
-`v028a.txt` (the key pairs, the nudges), `v029a.txt` (the mutes, the toms), `v030a.txt` (the randoms of SEQ, RAND in PATTERNS) and `v031a.txt` (the MIDI recording).
+`v028a.txt` (the key pairs, the nudges), `v029a.txt` (the mutes, the toms) and `v030a.txt` (the randoms of SEQ, RAND in PATTERNS).
 
 Versions: 0.2.2 the clock in, 0.2.3 the AUDIO page and the stamped clock, 0.2.4 the RANDOM pages' labels, the melody random and the
 VERSION page, 0.2.5 and 0.2.6 the randoms' keys, the init of a page and the percussion random, 0.2.7 the clock out, the pulse sync,
-the notes out and the settings on `ENV`, 0.2.8 the six key pairs with no holds and NUDGE ALL, 0.2.9 the mutes, the mixer's black key and the percussion random as electronic toms, 0.3.0 the randoms of `OCT-` + `SEQ` and `OCT+` + `SEQ`, RAND in PATTERNS and the first power-on reverb, 0.3.1 the MIDI recording.
+the notes out and the settings on `ENV`, 0.2.8 the six key pairs with no holds and NUDGE ALL, 0.2.9 the mutes, the mixer's black key and the percussion random as electronic toms, 0.3.0 the randoms of `OCT-` + `SEQ` and `OCT+` + `SEQ`, RAND in PATTERNS and the first power-on reverb.
 
-Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; a package is `fm-fam-0.3.1.fwsc` and its tag `v0.3.1`); the
+Versions have three numbers from 0.2.1 on (`APP_VERSION` in `fam/app.h`; a package is `fm-fam-0.3.0.fwsc` and its tag `v0.3.0`); the
 releases before it are 0.19 and 0.20.
 
 ## Identity and package

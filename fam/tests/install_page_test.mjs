@@ -70,7 +70,6 @@ const KEPT = {                                                   // the file att
   "fm-fam-0.2.9.fwsc": "367e1bbee91bf8195bb8192528ec9927be44254059ae363813385297cc4a5b1d",
   "fm-fam-0.20.fwsc": "5cdbe6025e64a75e7204d6e5515d465501e5a6de256929c944298b5abf1aafa2",
   "fm-fam-0.3.0.fwsc": "f332c28d49543f19a11a4d7b2509e690d1f4f26cc5dc5983722e613aa42eaccc",
-  "fm-fam-0.3.1.fwsc": "3bdf62200e9596d2ab39551add92f3202308d8a06ae319d58e14606ce35f959a",
 };
 const dir = path.join(root, "fam/releases");
 const files = fs.readdirSync(dir).filter((f) => f.endsWith(".fwsc")).sort();
