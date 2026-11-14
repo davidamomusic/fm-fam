@@ -96,7 +96,9 @@ of SEQ and of the KICK sequence start at the same x (`col_x0()`). Tested by `fam
 FM-1's panel drawn around its screen. It is what `fmhub.json`'s `"play"` points to, served by GitHub Pages; `"editor"` points to
 the screen mirror and `"cheat"` to the cheat sheet. It has the sound and the screen of the firmware, not the FM-1's hardware: no
 Bluetooth, no USB audio, no MIDI, and what it saves stays in the browser. The page is FM-FAM's own (`fam/web/emu/index.html`:
-fm1-base's, with a tip under the title, no screen reader, and Render Audio under the panel).
+fm1-base's, with a tip under the title, no screen reader, Render Audio under the panel, and the computer's keyboard
+playing the whole panel from anywhere on the page, with a map of the keys: the keys and white keys on QWERTY rows, the buttons on
+the rest, the arrows for SELECT and Option (Alt) with a letter for the other knobs).
 
 **Render Audio**, on the player and on the mirror page, renders a pattern to a 32-bit float stereo WAV at 44.1 kHz with
 FM-FAM's own engine: the whole pattern, the sequence only or the kick only, 1 to 16 bars of sixteen 16ths, with or without the

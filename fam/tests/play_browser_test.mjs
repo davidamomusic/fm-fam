@@ -46,6 +46,22 @@ const lit = await page.evaluate(() => {
   return n;
 });
 check(lit > 5000, `the screen is drawn (${lit} lit pixels)`);
+// the computer's keyboard plays it from anywhere on the page (the panel not clicked): a held key holds the button or key
+await page.click("h1");
+const heldNames = () => page.evaluate(() => [...document.querySelectorAll("#controls [aria-pressed=true]")].map((d) => d.getAttribute("aria-label").replace(/, .*/, "")).join("|"));
+await page.keyboard.down("x"); await page.keyboard.down("q");
+await page.waitForTimeout(60);
+const held = await heldNames();
+await page.keyboard.up("q"); await page.keyboard.up("x");
+await page.waitForTimeout(120);
+check(/OCT plus/.test(held) && /White key 1/.test(held), `the keyboard holds OCT+ (X) and white key 1 (Q) with the panel not focused (${held})`);
+check((await heldNames()) === "", "... and lets them go");
+const knobAngle = () => page.evaluate(() => document.querySelectorAll("#panel g")[0] && [...document.querySelectorAll("#panel [transform]")].map((e) => e.getAttribute("transform")).join(";"));
+const a0 = await knobAngle();
+await page.keyboard.press("Alt+KeyQ");
+check((await knobAngle()) !== a0, "Option (Alt) + Q turns KNOB1");
+const caps = await page.$$eval("#kbdmap .cap", (c) => c.length);
+check(caps === 41, `the map of the keys is drawn (${caps} keys)`);
 check(!(await page.$("#speak")) && !(await page.$("text=Screen Reader")), "no screen reader on the page");
 check(!(await page.$("text=MIDI ports")) && !fs.existsSync(path.join(dir, "parts/midi.js")), "no MIDI on the page");
 

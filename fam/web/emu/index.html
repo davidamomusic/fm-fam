@@ -29,6 +29,19 @@ main, body > header { max-width: 1040px; margin: 0 auto; }
 header { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem 1.2rem; margin: 0 0 1rem; }
 h1 { font: 700 2rem/1.1 "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0; }
 header p { margin: 0; color: var(--muted); }
+.kbd { margin: 1.2rem 0 0; padding: .9rem 1rem 1rem; background: var(--card); border: 1px solid var(--rule); border-radius: 14px; }
+.kbd h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .3rem; }
+.kbd p { margin: .3rem 0 .7rem; color: var(--muted); max-width: 80ch; font-size: .92rem; }
+.kbd.off .kbdmap { opacity: .35; }
+.kbdmap { display: grid; gap: .3rem; overflow-x: auto; }
+.krow { display: flex; gap: .3rem; }
+.cap { flex: none; width: 3.1rem; height: 2.6rem; border-radius: 7px; border: 1px solid var(--rule); background: var(--ground); display: grid;
+       grid-template-rows: 1fr 1fr; align-items: center; justify-items: center; line-height: 1; color: var(--muted); }
+.cap b { font: 600 .95rem "Barlow", sans-serif; color: var(--ink); align-self: end; }
+.cap i { font: 600 .68rem "Barlow Semi Condensed", "Barlow", sans-serif; font-style: normal; letter-spacing: .02em; align-self: start; padding-top: .15rem; }
+.cap.white { background: #f2eee6; border-color: #cfc6b8; } .cap.white b { color: #2a2420; } .cap.white i { color: #6e5c4b; }
+.cap.black { background: #2b2622; border-color: #2b2622; } .cap.black b { color: #f2e8d8; }
+.cap.btn { background: #3a332d; border-color: #3a332d; } .cap.btn b { color: #f2e8d8; } .cap.btn i { color: #f28a5a; }
 header p.tip { flex-basis: 100%; text-align: center; color: var(--ink); font-weight: 600; }
 .render { margin: 1.4rem 0 0; padding: .9rem 1rem 1rem; background: var(--card); border: 1px solid var(--rule); border-radius: 14px; }
 .render h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .3rem; }
@@ -102,10 +115,20 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
   <span id="reset-why" class="sr">Forget what was saved and start again from the factory settings</span>
 </div>
 
+
 <section class="render" id="render" aria-labelledby="renderH">
   <h2 id="renderH">Render Audio</h2>
   <p>Render a pattern to audio with {{NAME}}'s own sound engine, from the player as it is now (its sound, its patterns and its
     tempo), then play it, save it as a WAV file or drag it into your DAW. The whole pattern, only the sequence or only the kick.</p>
+</section>
+<section class="kbd" id="kbd" aria-labelledby="kbdH">
+  <h2 id="kbdH">Play it with your computer's keyboard</h2>
+  <p>Switch on, then press the keys: no need to click the panel first. Hold two keys together as on the FM-1 (OCT+ and REC: Z/X
+    and O). The arrow keys turn SELECT (Shift: faster). With <kbd>Option</kbd> (<kbd>Alt</kbd>) held, the key on top turns a knob up
+    and the one below it down: <kbd>Q</kbd>/<kbd>A</kbd> KNOB1, <kbd>W</kbd>/<kbd>S</kbd> KNOB2, <kbd>E</kbd>/<kbd>D</kbd> KNOB3,
+    <kbd>R</kbd>/<kbd>F</kbd> KNOB4, <kbd>T</kbd>/<kbd>G</kbd> ALGORITHM, <kbd>Y</kbd>/<kbd>H</kbd> PRESETS. <kbd>Space</kbd> is PLAY and
+    <kbd>Esc</kbd> HOME too. Turn it off with Keyboard shortcuts, above.</p>
+  <div class="kbdmap" id="kbdmap" aria-hidden="true"></div>
 </section>
 </main>
 
@@ -346,19 +369,34 @@ for (const [c, kind] of [...Object.values(buttons).map((b) => [b, "btn"]), ...ke
   });
 }
 
-// shortcuts: single letters, only while the panel has focus, and they can be turned off
-const KEYMAP = {};
+// the computer's keyboard: the whole panel, wherever the focus is on the page (not in a field), and it can be turned off.
+// Keys by their place on the keyboard (KeyboardEvent.code), so any layout plays the same; the map below the panel names
+// them as this keyboard prints them (navigator.keyboard, where the browser has it)
+const KEYMAP = {}, KNOBKEYS = {};
 "qwertyui".split("").forEach((c, i) => KEYMAP["Key" + c.toUpperCase()] = { key: WHITE_K[i] });
 "asdfghjk".split("").forEach((c, i) => KEYMAP["Key" + c.toUpperCase()] = { key: WHITE_K[8 + i] });
 "1234567890".split("").forEach((c, i) => KEYMAP["Digit" + c] = { key: BLACK_K[i] });
 KEYMAP.Minus = { key: BLACK_K[10] };
-Object.assign(KEYMAP, { KeyP: { btn: BTN.PLAY }, KeyO: { btn: BTN.REC }, Escape: { btn: BTN.HOME }, KeyZ: { btn: BTN["OCT-"] }, KeyX: { btn: BTN["OCT+"] } });
+const BTNKEYS = { KeyZ: "OCT-", KeyX: "OCT+", KeyC: "FX", KeyV: "SEL", KeyB: "ENV", KeyN: "LFO", KeyM: "EDIT", Comma: "GLO",
+                  KeyL: "HOME", Semicolon: "SAVE", Quote: "ARP", Period: "SEQ", KeyP: "PLAY", KeyO: "REC", Escape: "HOME", Space: "PLAY" };
+for (const [code, b] of Object.entries(BTNKEYS)) KEYMAP[code] = { btn: BTN[b] };
+// the knobs: the arrows turn SELECT; with Option (Alt), the key above turns a knob up and the key below it down
+Object.assign(KNOBKEYS, { KeyQ: ["KNOB1", 1], KeyA: ["KNOB1", -1], KeyW: ["KNOB2", 1], KeyS: ["KNOB2", -1], KeyE: ["KNOB3", 1], KeyD: ["KNOB3", -1],
+                          KeyR: ["KNOB4", 1], KeyF: ["KNOB4", -1], KeyT: ["ALGORITHM", 1], KeyG: ["ALGORITHM", -1], KeyY: ["PRESETS", 1], KeyH: ["PRESETS", -1] });
 const shortcuts = $("shortcuts");
 if (prefs.shortcuts === false) shortcuts.checked = false;
-shortcuts.addEventListener("change", () => { prefs.shortcuts = shortcuts.checked; savePrefs(); });
-controls.addEventListener("keydown", (e) => {
-  if (!node || !shortcuts.checked || e.metaKey || e.ctrlKey || e.altKey) return;
-  if (e.code === "ArrowUp" || e.code === "ArrowDown") { turn(knobs.SELECT, e.code === "ArrowUp" ? 1 : -1); e.preventDefault(); return; }
+shortcuts.addEventListener("change", () => { prefs.shortcuts = shortcuts.checked; savePrefs(); $("kbd").classList.toggle("off", !shortcuts.checked); });
+const typing = (t) => t && (t.tagName === "INPUT" && !["checkbox", "radio", "button"].includes(t.type) || t.tagName === "SELECT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+document.addEventListener("keydown", (e) => {
+  if (!node || !shortcuts.checked || e.metaKey || e.ctrlKey || typing(e.target)) return;
+  if (e.altKey) {                                  // Option (Alt) + a letter: a knob (Shift: five detents)
+    const k = KNOBKEYS[e.code];
+    if (!k) return;
+    e.preventDefault();
+    turn(knobs[k[0]], k[1] * (e.shiftKey ? 5 : 1));
+    return;
+  }
+  if (e.code === "ArrowUp" || e.code === "ArrowDown") { turn(knobs.SELECT, (e.code === "ArrowUp" ? 1 : -1) * (e.shiftKey ? 5 : 1)); e.preventDefault(); return; }
   const m = KEYMAP[e.code];
   if (!m) return;
   e.preventDefault();
@@ -373,7 +411,43 @@ function letGoKeys() {
   syncButtons(); syncKeys();
 }
 addEventListener("blur", letGoKeys);
-controls.addEventListener("focusout", (e) => { if (!controls.contains(e.relatedTarget)) letGoKeys(); });
+
+// the map of the keys, drawn as a keyboard (below the panel)
+const KBD_ROWS = [
+  ["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "Digit8", "Digit9", "Digit0", "Minus"],
+  ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO", "KeyP"],
+  ["KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyJ", "KeyK", "KeyL", "Semicolon", "Quote"],
+  ["KeyZ", "KeyX", "KeyC", "KeyV", "KeyB", "KeyN", "KeyM", "Comma", "Period"]];
+const US = { Minus: "-", Semicolon: ";", Quote: "'", Comma: ",", Period: "." };
+function drawKbd(layout) {
+  const box = $("kbdmap");
+  box.replaceChildren();
+  const label = (code) => ((layout && layout.get(code)) || US[code] || code.replace(/^(Key|Digit)/, "")).toUpperCase();
+  KBD_ROWS.forEach((row, r) => {
+    const d = document.createElement("div");
+    d.className = "krow";
+    d.style.paddingLeft = `${r * 1.1}rem`;
+    for (const code of row) {
+      const m = KEYMAP[code], cap = document.createElement("span");
+      let fn = "", kind = "";
+      if (m && m.key !== undefined) {
+        const w = WHITE_K.indexOf(m.key);
+        kind = w >= 0 ? "white" : "black";
+        fn = w >= 0 ? `${w + 1}` : "";
+      } else if (m) { kind = "btn"; fn = BTNKEYS[code]; }
+      cap.className = `cap ${kind}`;
+      cap.innerHTML = `<b></b><i></i>`;
+      cap.firstChild.textContent = label(code);
+      cap.lastChild.textContent = fn;
+      if (KNOBKEYS[code]) cap.title = `Option (Alt) + ${label(code)}: ${KNOBKEYS[code][0]} ${KNOBKEYS[code][1] > 0 ? "up" : "down"}`;
+      d.appendChild(cap);
+    }
+    box.appendChild(d);
+  });
+}
+drawKbd(null);
+if (navigator.keyboard && navigator.keyboard.getLayoutMap) navigator.keyboard.getLayoutMap().then(drawKbd).catch(() => {});
+if (!shortcuts.checked) $("kbd").classList.add("off");
 
 // ---------------------------------------------------------------- screen and lights
 // The LCD's 240 x 240 picture is drawn into a hidden canvas, then into the visible one enlarged by a whole number
