@@ -32,6 +32,10 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 await page.goto(`http://127.0.0.1:${srv.address().port}/`);
 check((await page.title()).includes("FM-FAM"), "the page is FM-FAM's");
+// the tip under the title is added by hand to fam/docs/play/index.html: put it back after copying a new build
+check(((await page.textContent("header p.tip")) || "").trim() === "Press OCT+ and REC to randomize sequences",
+      "the tip under the title is there");
+await page.screenshot({ path: "/tmp/play_tip.png", clip: { x: 0, y: 0, width: 1100, height: 260 } });
 await page.click("#go");
 await page.waitForTimeout(4000);
 const lit = await page.evaluate(() => {

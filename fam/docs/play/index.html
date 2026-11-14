@@ -26,6 +26,7 @@ main, body > header { max-width: 1040px; margin: 0 auto; }
 header { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem 1.2rem; margin: 0 0 1rem; }
 h1 { font: 700 2rem/1.1 "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0; }
 header p { margin: 0; color: var(--muted); }
+header p.tip { flex-basis: 100%; text-align: center; color: var(--ink); font-weight: 600; }
 header nav { margin-left: auto; display: flex; gap: 1rem; }
 a { color: var(--accent); }
 /* at phone width the drawn panel keeps its controls 24 px or more (WCAG 2.5.8): it keeps a minimum width and
@@ -81,6 +82,7 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
 <body>
 <header>
   <h1>FM-FAM</h1>
+  <p class="tip">Press OCT+ and REC to randomize sequences</p>
 </header>
 <main>
 <h2 class="sr">The FM-1</h2>
