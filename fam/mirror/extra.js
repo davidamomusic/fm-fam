@@ -6,11 +6,11 @@
 {{OTA_JS}}
 // the ports are one tool's at a time: a backup, a project, an update (each tool's own update() is hooked in)
 const TOOLS = { on: false, hooks: [], set(v) { this.on = v; this.hooks.forEach((f) => f()); } };
-// the beta notice (extra.html, #beta) goes to the top of the page, under the title; it also ends every question that writes to the FM-1
+// the beta notice (extra.html, #beta) goes to the very bottom of the page; it also ends every question that writes to the FM-1
 const BETA_NOTE = "{{NAME}} is beta software and can fail: you do this at your own risk.";
 {
-  const beta = document.getElementById("beta"), head = document.querySelector("main > header");
-  if (beta && head) head.after(beta);
+  const beta = document.getElementById("beta"), main = document.querySelector("main");
+  if (beta && main) main.append(beta);
 }
 
 // --- projects: begin (fam/tests/projects_page_test.mjs runs this part in Node, after the backup protocol above)
@@ -323,6 +323,38 @@ fileAll.addEventListener("change", () => {
 mirrorTool.onports(() => { if (!busy) update(); });
 TOOLS.hooks.push(update);
 render();
+
+// ---------------------------------------------------------------- Render Audio (extra.html #render; play/render.js, the
+// player's): a pattern rendered by FM-FAM's own sound engine in this browser, from a backup read from the FM-1 just now
+// (the ports taken as for Projects and backup). The FM-1 is only read: nothing is written to it.
+const renderEl = document.getElementById("render");
+if (renderEl && !/^https?:$/.test(location.protocol)) renderEl.hidden = true;   // (a page opened from a file: no modules)
+else if (renderEl) import("./play/render.js").then(({ setupRender }) => {
+  const part = setupRender(renderEl, {
+    wasmUrl: "play/app.wasm", workerUrl: "play/render_worker.js", playing: false,
+    ready: () => (!mirrorTool.connected ? "Connect to the FM-1 above first." : busy || TOOLS.on ? "Another tool is using the FM-1." : ""),
+    source: async (say) => {
+      if (busy || TOOLS.on) throw new Error("Another tool is using the FM-1. Wait for it, then try again.");
+      busy = true;
+      TOOLS.set(true);
+      try {
+        say("Reading the FM-1…");
+        const r = await session((link) => PB.backup(link, (n) => say(`Reading the FM-1… ${Math.round(n / 1024)} kB`)));
+        const store = {};
+        for (const o of PB.parse(r.image).objs) store[o.obj] = o.data;
+        return { store, note: r.flags & 1 ? "The FM-1 was playing, so its latest changes may not be in it: stop it and render again to have them." : "" };
+      } catch (e) {
+        if (e.code === "stopped" && /didn't answer/.test(e.message)) e.message = `${PB.NAME} didn't answer. Render Audio needs ${PB.NAME} ${PJ.APP} or later on the FM-1.`;
+        throw e;
+      } finally {
+        busy = false;
+        TOOLS.set(false);
+      }
+    },
+  });
+  mirrorTool.onports(() => part.update());
+  TOOLS.hooks.push(() => part.update());
+}).catch(() => { renderEl.hidden = true; });
 }
 
 // --- install: begin (fam/tests/install_page_test.mjs runs this part in Node, after OTA)

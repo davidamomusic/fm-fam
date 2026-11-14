@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // FM-FAM's browser player (fam/docs/play, the page fmhub.json's "play" points to) in a real (headless) Chromium: the page
-// loads, "Switch on" starts the module, and the FM-1's screen is drawn.
+// loads, "Switch on" starts the module, and the FM-1's screen is drawn; no screen reader and no MIDI; Render Audio renders
+// the pattern playing (whole, sequence only, kick only) into a waveform and a WAV file.
 //   node fam/tests/play_browser_test.mjs        (from the repository's root; needs playwright-core and a Chromium:
 //   PLAYWRIGHT_CORE and CHROMIUM in the environment, or /opt/npm-tools and /opt/pw-browsers; skipped without them)
 import fs from "fs";
@@ -45,6 +46,37 @@ const lit = await page.evaluate(() => {
   return n;
 });
 check(lit > 5000, `the screen is drawn (${lit} lit pixels)`);
+check(!(await page.$("#speak")) && !(await page.$("text=Screen Reader")), "no screen reader on the page");
+check(!(await page.$("text=MIDI ports")) && !fs.existsSync(path.join(dir, "parts/midi.js")), "no MIDI on the page");
+
+// Render Audio: the three renders of the pattern playing, from the same copy of the player
+const rendered = async (label) => {
+  if (label) await page.click(`#render .seg button:has-text("${label}")`);
+  else await page.click('#render [data-r="go"]');
+  await page.waitForFunction(() => /Rendered|no sound|^The |did not/.test(document.querySelector('#render [data-r="msg"]').textContent)
+    && !document.querySelector('#render [data-r="go"]').disabled, null, { timeout: 60000 });
+  return page.evaluate(() => {
+    const r = document.getElementById("render"), cv = r.querySelector("canvas"), d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+    let lit = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 300) lit++;
+    return { msg: r.querySelector('[data-r="msg"]').textContent, info: r.querySelector('[data-r="info"]').textContent,
+             file: r.querySelector('[data-r="file"]').textContent, save: !r.querySelector('[data-r="save"]').disabled, lit };
+  });
+};
+const t0 = Date.now();
+const full = await rendered();
+check(full.msg === "Rendered." && full.save && full.lit > 2000, `Render Audio: the whole pattern (${full.msg} ${full.info}; ${full.lit} lit; ${Date.now() - t0} ms)`);
+check(/^fm-fam-A\d\d-full-\d+bpm\.wav$/.test(full.file), `its file is named for the pattern (${full.file})`);
+await page.screenshot({ path: "/tmp/play_render.png", fullPage: true });
+const kick = await rendered("Kick only");
+check(kick.msg === "Rendered." && /-kick-/.test(kick.file), `the kick only (${kick.msg} ${kick.info})`);
+const seq = await rendered("Sequence only");
+check(/-sequence-/.test(seq.file), `the sequence only (${seq.msg} ${seq.info})`);
+const wavInfo = await page.evaluate(async () => {
+  const a = document.querySelector('#render [data-r="drag"]');
+  return a.getAttribute("aria-disabled");
+});
+check(wavInfo === "false", "the audio can be dragged out");
 check(errors.length === 0, `no script error (${errors.slice(0, 2).join("; ")})`);
 // the page asks for two things it can do without: the screen reader's words and an icon
 const needed = missing.filter((u) => !u.includes("reader/") && !u.includes("favicon"));

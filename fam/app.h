@@ -20,6 +20,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12);
 void app_tick(void);
 #define APP_LINE_OUT                     /* FM-FAM's addition to the platform: the block on its way to the FM-1's own output */
 void app_line_out(int32_t *lr, uint32_t n);
+#define APP_WEB                          /* the browser pages' own exports (fam/web.c): Render Audio */
 void app_panic(void);
 void app_ui_init(void);
 void app_frame(void);

@@ -556,6 +556,9 @@ static struct {
     volatile uint8_t rec_wrote;          /* a note was written (the main loop marks the pattern changed) */
     uint8_t skip_s;                      /* a step a note was written into just before it plays (it has sounded): 1 + its index */
 } sq;
+#ifdef PLAT_WEB
+static int32_t web_steps = -1;           /* Render Audio (fam/web.c, the browser pages only): the 16ths still to play, -1 no end */
+#endif
 static uint8_t rec_sel0, *rec_sel = &rec_sel0;   /* the selected step (ui.sel, once the UI is up): where a note goes when stopped */
 
 /* MIDI sync (GLO page 6): with it on, the clock that comes in (USB, the MIDI jack, Bluetooth) plays the steps, a 16th
@@ -1586,6 +1589,14 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         if (sq.running) {
             float lim;
             while (sq.left <= 0.0f) {
+#ifdef PLAT_WEB
+                if (web_steps == 0) {    /* the render's steps are over: the sequencer stops on the next 16th */
+                    seq_stop();
+                    break;
+                }
+                if (web_steps > 0)
+                    web_steps--;
+#endif
                 seq_step();
                 sq.left = xs.live ? XS_WAIT : sq.left + sq.dur;      /* (the clock's steps: the next one when it says) */
             }

@@ -3,6 +3,9 @@
      Copyright (C) 2026 Charles Vestal -->
 <html lang="en">
 <head>
+<!-- FM-FAM's own player page (fam/web/emu/index.html, tools/build.py --web): fm1-base's web/emu/index.html with a tip under
+     the title, Render Audio under the panel (render.js, render_worker.js) and no screen reader. Copied into fam/docs/play
+     by fam/tools/play.sh. -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FM-FAM in the browser</title>
@@ -27,6 +30,9 @@ header { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem 1.2re
 h1 { font: 700 2rem/1.1 "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0; }
 header p { margin: 0; color: var(--muted); }
 header p.tip { flex-basis: 100%; text-align: center; color: var(--ink); font-weight: 600; }
+.render { margin: 1.4rem 0 0; padding: .9rem 1rem 1rem; background: var(--card); border: 1px solid var(--rule); border-radius: 14px; }
+.render h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .3rem; }
+.render > p { margin: .3rem 0; color: var(--muted); max-width: 72ch; }
 header nav { margin-left: auto; display: flex; gap: 1rem; }
 a { color: var(--accent); }
 /* at phone width the drawn panel keeps its controls 24 px or more (WCAG 2.5.8): it keeps a minimum width and
@@ -52,24 +58,11 @@ a { color: var(--accent); }
 @media (orientation: portrait) and (max-width: 700px) { .turn { display: block; } }
 .start button:disabled { opacity: .6; cursor: progress; }
 .bar { display: flex; flex-wrap: wrap; gap: .5rem 1.2rem; align-items: center; margin: .9rem 0 0; color: var(--muted); font-size: .92rem; }
-.bar button, .speak button { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--muted); border-radius: 8px; padding: .3em .8em; cursor: pointer; min-height: 2.2em; }
+.bar button { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--muted); border-radius: 8px; padding: .3em .8em; cursor: pointer; min-height: 2.2em; }
 .bar button[aria-pressed="true"] { background: var(--ink); color: var(--ground); }
-.speak button:disabled { opacity: .5; cursor: default; }
 #alert { color: var(--bad); font-weight: 600; flex-basis: 100%; }
 #alert:empty { display: none; }
-.speak { margin: 1.4rem 0 0; padding: 1rem 1.2rem; background: var(--card); border: 1px solid var(--rule); border-radius: 14px; }
-.speak summary { cursor: pointer; }
-.speak summary h2 { display: inline; font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0; }
-.speak[open] summary { margin: 0 0 .6rem; }
 .bar .keys { display: inline-flex; gap: .4rem; align-items: center; }
-.speak fieldset { border: 0; margin: 0 0 .6rem; padding: 0; display: flex; flex-wrap: wrap; gap: .3rem 1.4rem; }
-.speak legend { font-weight: 600; padding: 0; margin: 0 0 .3rem; }
-.speak label { display: inline-flex; gap: .45rem; align-items: center; }
-.speak input { width: 1.1rem; height: 1.1rem; accent-color: var(--teal); }
-.speak .row { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; margin: .6rem 0 0; }
-#said { font-size: 1.25rem; margin: .2rem 0 0; min-height: 1.6em; overflow-wrap: anywhere; }
-#said:empty::before { content: "Nothing yet."; color: var(--muted); font-size: 1rem; }
-.speak p.note { color: var(--muted); margin: .4rem 0 0; font-size: .92rem; }
 .bar .cpu { font-variant-numeric: tabular-nums; }
 .help h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .3rem; }
 .help { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem 2rem; margin: 1.6rem 0 0; }
@@ -90,7 +83,7 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
 <div class="devicebox">
 <div class="device" id="device">
   <svg id="panel" viewBox="0 0 1000 640" aria-hidden="true" focusable="false"></svg>
-  <canvas id="screen" width="240" height="240" role="img" aria-label="The FM-1's screen. Its text is read out: see Screen Reader, below the panel"></canvas>
+  <canvas id="screen" width="240" height="240" role="img" aria-label="The FM-1's screen."></canvas>
   <div id="controls" role="group" aria-label="The FM-1's panel" aria-describedby="panel-keys" inert></div>
   <div class="start" id="start"><button type="button" id="go">Switch on</button></div>
 </div>
@@ -109,23 +102,11 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
   <span id="reset-why" class="sr">Forget what was saved and start again from the factory settings</span>
 </div>
 
-<details class="speak" id="speak">
-  <summary><h2>Screen Reader</h2></summary>
-  <fieldset>
-    <legend>Output</legend>
-    <label><input type="radio" name="speak" value="sr" checked> System screen reader</label>
-    <label><input type="radio" name="speak" value="voice"> Built-in voice</label>
-    <label><input type="radio" name="speak" value="off"> Off</label>
-  </fieldset>
-  <p id="said" aria-hidden="true"></p>
-  <div class="row">
-    <button type="button" id="where" disabled>Read whole screen</button>
-    <button type="button" id="again" disabled>Repeat last</button>
-  </div>
-</details>
-<!-- what the screen says, for the computer's screen reader -->
-<div id="live-p" class="sr" aria-live="polite" aria-atomic="true"></div>
-<div id="live-a" class="sr" aria-live="assertive" aria-atomic="true"></div>
+<section class="render" id="render" aria-labelledby="renderH">
+  <h2 id="renderH">Render Audio</h2>
+  <p>Render a pattern to audio with FM-FAM's own sound engine, from the player as it is now (its sound, its patterns and its
+    tempo), then play it, save it as a WAV file or drag it into your DAW. The whole pattern, only the sequence or only the kick.</p>
+</section>
 </main>
 
 
@@ -576,99 +557,6 @@ function drawLights(b, k, db = 0, dk = 0) {
   BLACK_K.forEach((i) => lightName(keys[i], !!(k & (1 << i)), now));
 }
 
-// ---------------------------------------------------------------- the screen in words (fm1-reader)
-// The firmware tells a reader what its screen shows (fm1-reader's PROTOCOL.md: SysEx F0 7D 53 52 cmd ... F7). Here
-// the reader is this page: HELLO every 2 s through the emulator (web_sysex), SAY frames back (web_said_buf), put in
-// words with fm1-reader's words.js and the app's words file, then read by the computer's screen reader (a live region)
-// or by the built-in voice (tts.js, eSpeak NG).
-const SR_HELLO = [0x7d, 0x53, 0x52, 1, 1], SR_BYE = [0x7d, 0x53, 0x52, 2], SR_WHERE = [0x7d, 0x53, 0x52, 3];
-const speakMode = () => document.querySelector('input[name="speak"]:checked').value;
-if (prefs.speakOpen) $("speak").open = true;
-$("speak").addEventListener("toggle", () => { prefs.speakOpen = $("speak").open; savePrefs(); });
-if (["sr", "voice", "off"].includes(prefs.speak)) document.querySelector(`input[name="speak"][value="${prefs.speak}"]`).checked = true;
-let helloTimer = null, heard = false, said = false, words = [], wordsReady = null, chain = Promise.resolve();
-let spoken = (s) => s, tts = null, ttsReady = null, last = null, liveFlip = false, keeping = 0;
-const wordsLib = import("./reader/words.js").then((m) => { spoken = m.spoken; return m; }).catch(() => null);
-function sysex(bytes) { send({ type: "sysex", bytes }); }
-function readerOn() {
-  if (!node || helloTimer || speakMode() === "off") return;
-  heard = said = false;
-  sysex(SR_HELLO);
-  helloTimer = setInterval(() => sysex(SR_HELLO), 2000);
-}
-function readerOff() {
-  if (!helloTimer) return;
-  clearInterval(helloTimer);
-  helloTimer = null;
-  sysex(SR_BYE);
-  $("where").disabled = $("again").disabled = true;
-  $("said").textContent = "";
-}
-// the words file: the one the firmware names, from this site (../words/, the same file the link points at)
-async function loadWords(link) {
-  const file = (link.match(/[^/]+\.json$/) || [""])[0];
-  const lib = await wordsLib;
-  if (!lib || !file) return [];
-  for (const url of [`../words/${file}`, link]) {
-    try {
-      const r = await fetch(url);
-      if (r.ok) return lib.wordsOf(await r.json());
-    } catch { /* offline, or not published yet: the next */ }
-  }
-  return [];
-}
-function speak(text, now, keep) {
-  last = { text, now, keep };
-  $("said").textContent = text;
-  $("again").disabled = false;
-  if (speakMode() === "voice") {
-    if (!tts) return;
-    const p = tts.speak(text, { interrupt: now && !keeping });
-    if (keep) { keeping++; p.then(() => keeping--); }
-  } else if (speakMode() === "sr") {
-    // the same words twice in a row are not read again by some screen readers: alternate the text
-    liveFlip = !liveFlip;
-    (now || keep ? $("live-a") : $("live-p")).textContent = text + (liveFlip ? "" : " ");
-  }
-}
-function onSaid(bytes) {
-  for (let i = 0; i < bytes.length; i++) {
-    if (bytes[i] !== 0xf0) continue;
-    const end = bytes.indexOf(0xf7, i);
-    if (end < 0) break;
-    const f = bytes.subarray(i + 1, end);
-    i = end;
-    if (f[0] !== 0x7d || f[1] !== 0x53 || f[2] !== 0x52) continue;
-    const str = (d) => String.fromCharCode(...d.filter((b) => b < 128));
-    if (f[3] === 1 && !heard) {                                     // HELLO: the name, and the words file's link
-      heard = true;
-      const [name, link = ""] = str(f.subarray(5)).split("\0");
-      wordsReady = loadWords(link).then((w) => { words = w; });
-      $("where").disabled = false;
-      // the first HELLO brings the whole screen by itself; if it doesn't come, ask for it
-      setTimeout(() => { if (!said && helloTimer) sysex(SR_WHERE); }, 400);
-    } else if (f[3] === 16) {                                       // SAY: flags, the screen's text
-      said = true;
-      const flags = f[4], screen = str(f.subarray(5));
-      chain = chain.then(() => wordsReady).then(() => speak(spoken(screen, words), !!(flags & 1), !!(flags & 2)));
-    }
-  }
-}
-async function voiceOn() {
-  if (!ttsReady) ttsReady = import("./reader/tts.js").then((m) => m.createTTS()).then((t) => (tts = t))
-    .catch(() => { showAlert("The built-in voice could not start in this browser. Choose System screen reader."); ttsReady = null; });
-  const t = await ttsReady;
-  if (t) t.unlock();
-}
-document.querySelectorAll('input[name="speak"]').forEach((r) => r.addEventListener("change", () => {
-  prefs.speak = speakMode(); savePrefs();
-  if (tts && speakMode() !== "voice") tts.stop();
-  if (speakMode() === "voice") voiceOn().then(() => tts && tts.speak("Voice on"));
-  if (speakMode() === "off") readerOff(); else readerOn();
-}));
-$("where").addEventListener("click", () => sysex(SR_WHERE));
-$("again").addEventListener("click", () => last && speak(last.text, true, last.keep));
-
 // ---------------------------------------------------------------- storage
 function loadStore() {
   try {
@@ -696,7 +584,6 @@ async function switchOn() {
   status.textContent = "Starting…";
   try {
     const ac = new AudioContext({ sampleRate: 44100, latencyHint: "interactive" });
-    if (speakMode() === "voice") voiceOn();
     const [wasm] = await Promise.all([fetch("app.wasm").then((r) => { if (!r.ok) throw new Error(`app.wasm: ${r.status}`); return r.arrayBuffer(); }),
                                       ac.audioWorklet.addModule("app_worklet.js").catch(() => {})
                                         .then(() => ac.audioWorklet.addModule("worklet.js"))]);
@@ -712,10 +599,11 @@ async function switchOn() {
           if (m.fb) drawScreen(m.fb);
           drawLights(m.buttons, m.keys, m.dimButtons, m.dimKeys);
           if (m.dimOp !== undefined) document.documentElement.style.setProperty("--dimop", m.dimOp);   // APP_DIM_LEVELS
-          if (m.said) onSaid(m.said);
           window.emuLast = m;
           if (m.load !== undefined) cpu.textContent = `FM-FAM uses ${m.load}% of this computer's time`;
           if (m.store) saveStore(m.store);
+        } else if (m.type === "app" && m.op === "snapshot") {
+          if (snapWait) { const w = snapWait; snapWait = null; w(m.memory); }
         } else if (m.type === "app" && appPart && appPart.message) appPart.message(m);
       };
     });
@@ -730,8 +618,8 @@ async function switchOn() {
     controls.inert = false;
     status.textContent = ac.sampleRate === 44100 ? "On." : `On (the browser runs audio at ${ac.sampleRate} Hz).`;
     syncButtons(); syncKeys();
-    readerOn();
     knobs.MASTER.hit.focus();                  // the switch is gone: on to the panel
+    renderPart.update();
   } catch (err) {
     node = null;
     go.disabled = false;
@@ -741,6 +629,23 @@ async function switchOn() {
   }
 }
 $("go").addEventListener("click", switchOn);
+
+// ---------------------------------------------------------------- Render Audio (render.js, render_worker.js)
+// a copy of the running app (app_worklet.js sends its whole memory), which the renderer plays a pattern from
+let snapWait = null, renderPart = { update() {} };
+const snapshot = () => new Promise((res, rej) => {
+  if (!node) { rej(new Error("Switch the player on first.")); return; }
+  snapWait = res;
+  node.port.postMessage({ type: "app", op: "snapshot" });
+  setTimeout(() => { if (snapWait === res) { snapWait = null; rej(new Error("The player did not answer. Try again.")); } }, 4000);
+});
+import("./render.js").then(({ setupRender }) => {
+  renderPart = setupRender($("render"), {
+    wasmUrl: "app.wasm", workerUrl: "render_worker.js", playing: true,
+    source: async () => ({ memory: await snapshot() }),
+    ready: () => (node ? "" : "Switch the player on first (Switch on, on the panel)."),
+  });
+}).catch(() => { $("render").hidden = true; });
 $("mute").addEventListener("click", () => {
   const on = $("mute").getAttribute("aria-pressed") !== "true";
   $("mute").setAttribute("aria-pressed", on ? "true" : "false");

@@ -93,15 +93,25 @@ of SEQ and of the KICK sequence start at the same x (`col_x0()`). Tested by `fam
 ## The browser player
 
 `fam/docs/play/` is FM-FAM in a web page: the app itself, compiled to WebAssembly by fm1-base's host simulator (`web/emu`), with the
-FM-1's panel drawn around its screen; a MIDI keyboard or a DAW can play it (`emu = ["midi"]` in `fm1.toml`). It is what `fmhub.json`'s
-`"play"` points to, served by GitHub Pages; `"editor"` points to the screen mirror and `"cheat"` to the cheat sheet. It has the sound
-and the screen of the firmware, not the FM-1's hardware: no Bluetooth, no USB audio, and what it saves stays in the browser.
+FM-1's panel drawn around its screen. It is what `fmhub.json`'s `"play"` points to, served by GitHub Pages; `"editor"` points to
+the screen mirror and `"cheat"` to the cheat sheet. It has the sound and the screen of the firmware, not the FM-1's hardware: no
+Bluetooth, no USB audio, no MIDI, and what it saves stays in the browser. The page is FM-FAM's own (`fam/web/emu/index.html`:
+fm1-base's, with a tip under the title, no screen reader, and Render Audio under the panel).
 
-To make it again after a change, with Emscripten installed: `python3 tools/build.py fam --web`, then copy `index.html`, `app.js`,
-`app_worklet.js`, `worklet.js`, `app.wasm` and `parts/*.js` from `fam/build/emu/` to `fam/docs/play/`. Without Emscripten,
-`fam/tools/emcc` stands in for it with clang, wasm-ld and a wasi-libc sysroot (`WASI_SYSROOT`; put its folder first in `PATH`): the
-committed player was built that way (clang 18, wasi-libc `wasi-sdk-22`). **The player must be rebuilt for every version**; it is tested
-by `node fam/tests/play_browser_test.mjs` (headless Chromium: the page loads, switches on and draws the screen).
+**Render Audio**, on the player and on the mirror page, renders a pattern to a 32-bit float stereo WAV at 44.1 kHz with
+FM-FAM's own engine: the whole pattern, the sequence only or the kick only, 1 to 16 bars of sixteen 16ths, with or without the
+effects' tail, shown as a waveform, played, saved or dragged out (Chrome and Edge). `fam/web/emu/render.js` is the section,
+`render_worker.js` a copy of the app in a worker that plays the pattern from its first step as fast as the computer goes;
+`fam/web.c` (`APP_WEB`, browser builds only) gives it the pattern, the mutes and a count of 16ths after which the sequencer
+stops. The player renders from a copy of the running app (`fam/web/emu/app_worklet.js` sends its memory); the mirror from a
+backup read from the FM-1 for it, so it renders the saved patterns (from A01; not the one playing, which a backup does not say).
+
+To make it again after a change: `sh fam/tools/play.sh` (with Emscripten, or `fam/tools/emcc` first in `PATH`: it stands in for
+it with clang, wasm-ld and a wasi-libc sysroot, `WASI_SYSROOT`; the committed player was built that way, clang 18, wasi-libc
+`wasi-sdk-22`). It builds with `python3 tools/build.py fam --web` and copies the page, the wasm, the worklet and Render Audio's
+files into `fam/docs/play/`. **The player must be rebuilt for every version**; it is tested by `node fam/tests/play_browser_test.mjs`
+(headless Chromium: the page loads, switches on, draws the screen and renders), the mirror's Render Audio by
+`fam/tests/projects_browser_test.mjs`.
 
 ## How FM-FAM 0.3.1 is driven
 

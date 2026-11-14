@@ -2,10 +2,13 @@
 // FM-FAM's mirror page in a real (headless) Chromium on a fake Web MIDI with a simulated FM-1 behind it: the mirror answers
 // its HELLO; a backup streams (device/backup.c's frames) and a restore pulls its pieces and asks for SEL. What the person
 // does on the page, end to end: Connect, Read the FM-1, Save a project to a file, put a file into another slot, save and load
-// everything, with the mirror stopped while the page has the ports and asked for the screen again after it.
+// everything, with the mirror stopped while the page has the ports and asked for the screen again after it. Render Audio
+// too: the page is served over HTTP with the player's files (fam/docs/play) beside it, and the simulated FM-1's sound and
+// first bank are FM-FAM's own (the player's engine, booted here), so the pattern it reads renders.
 //   node fam/tests/projects_browser_test.mjs        (from the repository's root; needs playwright-core and a Chromium:
 //   PLAYWRIGHT_CORE and CHROMIUM in the environment, or /opt/npm-tools and /opt/pw-browsers; skipped without them)
 import fs from "fs";
+import http from "http";
 import os from "os";
 import path from "path";
 import { execFileSync } from "child_process";
@@ -50,6 +53,19 @@ function image(flags = 0, get = (id) => data.get(id)) {
   for (const id of objsList) { const d = get(id); parts.push(Uint8Array.from([...le16(id), ...le16(d.length), ...le32(crc32(d))]), d); }
   const body = Buffer.concat(parts);
   return Buffer.concat([body, Buffer.from(le32(crc32(body)))]);
+}
+// the sound and bank A as FM-FAM saves them on its first start (app.wasm, the player's build): Render Audio plays them
+{
+  const wasm = fs.readFileSync(path.join(root, "fam/docs/play/app.wasm"));
+  let mem;
+  const stub = (t) => new Proxy(t, { get: (o, k) => (k in o ? o[k] : () => 0) });
+  const { instance } = await WebAssembly.instantiate(wasm, { wasi_snapshot_preview1: stub({ clock_time_get: (a, b, out) => { new DataView(mem.buffer).setBigUint64(out, 0n, true); return 0; } }), env: stub({}) });
+  const ex = instance.exports;
+  mem = ex.memory;
+  if (ex._initialize) ex._initialize();
+  ex.web_boot();
+  for (let i = 0; i < 260; i++) ex.web_render(1024);
+  for (const id of [ids.OBJ_SOUND, ids.OBJ_BANK0]) data.set(id, new Uint8Array(mem.buffer, ex.web_store(id), ex.web_store_len(id)).slice());
 }
 const startImage = image();
 
@@ -135,7 +151,15 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });   // (the page's web font, when offline)
 await page.addInitScript(fakeMidi.replace("__IMG__", JSON.stringify(startImage.toString("base64"))));
-await page.goto("file://" + pagePath);
+const TYPE = { ".html": "text/html", ".js": "text/javascript", ".wasm": "application/wasm" };
+const srv = http.createServer((q, r) => {
+  const u = decodeURIComponent(q.url.split("?")[0]);
+  const f = u.startsWith("/play/") ? path.join(root, "fam/docs", u) : path.join(work, u);
+  if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); r.end(); return; }
+  r.writeHead(200, { "content-type": TYPE[path.extname(f)] || "application/octet-stream" });
+  r.end(fs.readFileSync(f));
+}).listen(0);
+await page.goto(`http://127.0.0.1:${srv.address().port}/mirror.html`);
 
 const text = (sel) => page.textContent(sel).then((t) => t.trim());
 const waitStatus = (re, ms = 15000) => page.waitForFunction((src) => new RegExp(src).test(document.getElementById("pjStatus").textContent), re.source, { timeout: ms });
@@ -157,6 +181,21 @@ check(dis.join() === "oo,oo,xo,xo", "... Save to file is on for the two used slo
 const ops0 = await page.evaluate(() => window.__fm1.mirrorOps.length);
 await page.waitForTimeout(100);
 check(await page.evaluate(() => window.__fm1.backups) === 1, "... one backup asked");
+
+// Render Audio: a backup read for it, the patterns with steps offered, the first one rendered
+const rMsg = () => page.textContent('#render [data-r="msg"]');
+check(await page.isEnabled('#render [data-r="go"]'), "Render Audio: on once connected");
+await page.click('#render [data-r="go"]');
+await page.waitForFunction(() => /Rendered|no sound|didn't|not/.test(document.querySelector('#render [data-r="msg"]').textContent)
+  && !document.querySelector('#render [data-r="go"]').disabled, null, { timeout: 60000 });
+const rInfo = await page.textContent('#render [data-r="info"]');
+check((await rMsg()) === "Rendered." && /^A01 · \d+ BPM · 4 bars/.test(rInfo), `... the FM-1's pattern A01 rendered (${await rMsg()} ${rInfo})`);
+check(await page.evaluate(() => window.__fm1.backups) === 2, "... from a backup read for it");
+check(await page.$eval('#render [data-r="pat"]', (s) => [...s.options].map((o) => o.textContent).join()) === "A01", "... the patterns with steps on are offered");
+await page.click('#render .seg button:has-text("Kick only")');
+await page.waitForFunction(() => /-kick-/.test(document.querySelector('#render [data-r="file"]').textContent), null, { timeout: 30000 });
+check(await page.evaluate(() => window.__fm1.backups) === 2, "... the kick only, from the same read (nothing asked again)");
+await page.waitForFunction(() => !document.querySelector('#render [data-r="go"]').disabled, null, { timeout: 30000 });
 
 // 2. save a project to a file
 const [dl] = await Promise.all([page.waitForEvent("download"), page.click('#pjList li:nth-child(1) button[data-do="save"]')]);
@@ -250,5 +289,6 @@ check(errors.length === 0, "no errors in the page's console" + (errors.length ? 
 await page.screenshot({ path: path.join(work, "page.png"), fullPage: true });
 console.log("screenshot " + path.join(work, "page.png"));
 await browser.close();
+srv.close();
 console.log(fails ? `\n${fails} FAILED` : "\nall ok");
 process.exit(fails ? 1 : 0);
